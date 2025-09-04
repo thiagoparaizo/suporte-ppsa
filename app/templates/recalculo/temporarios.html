@@ -1,0 +1,360 @@
+<!-- templates/recalculo/temporarios.html -->
+{% extends "base.html" %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="max-width: 1600px;">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">
+            <i class="fas fa-history me-2"></i>
+            Recálculos Temporários
+        </h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('portal_ui.index') }}">Portal</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('recalculo_ui.index_recalculo') }}">Recálculo</a></li>
+                <li class="breadcrumb-item active">Temporários</li>
+            </ol>
+        </nav>
+    </div>
+
+    <!-- Informações -->
+    <div class="alert alert-info d-flex align-items-center mb-4">
+        <i class="fas fa-info-circle me-2"></i>
+        <div>
+            <strong>Recálculos Temporários:</strong> 
+            Esta seção exibe recálculos salvos temporariamente que ainda não foram aplicados definitivamente na base de dados.
+        </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="loadingTemporarios" class="text-center py-4">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Carregando...</span>
+        </div>
+        <p class="mt-2">Carregando recálculos temporários...</p>
+    </div>
+
+    <!-- Lista de Temporários -->
+    <div id="containerTemporarios" style="display: none;">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-list me-2"></i>
+                    Recálculos Pendentes
+                    <span id="totalTemporarios" class="badge bg-warning ms-2">0</span>
+                </h5>
+                <div class="btn-group btn-group-sm" role="group">
+                    <button class="btn btn-outline-primary" id="btnAtualizarLista">
+                        <i class="fas fa-sync-alt me-1"></i>Atualizar
+                    </button>
+                    <button class="btn btn-outline-danger" id="btnLimparTodos" disabled>
+                        <i class="fas fa-trash me-1"></i>Limpar Todos
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0" id="tabelaTemporarios">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Data/Hora</th>
+                                <th>CCO Info</th>
+                                <th>Tipo</th>
+                                <th>Modo</th>
+                                <th>Observações</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="corpoTabelaTemporarios">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mensagem de nenhum resultado -->
+    <div id="nenhumTemporario" class="alert alert-success text-center" style="display: none;">
+        <i class="fas fa-check-circle me-2"></i>
+        Nenhum recálculo temporário pendente encontrado.
+    </div>
+</div>
+
+<!-- Modal de Confirmação para Aplicar -->
+<div class="modal fade" id="modalConfirmarAplicar" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-check-circle me-2"></i>
+                    Confirmar Aplicação
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Atenção:</strong> Esta ação irá aplicar o recálculo definitivamente na base de dados e não poderá ser desfeita.
+                </div>
+                <p>Tem certeza de que deseja aplicar este recálculo?</p>
+                <div id="detalhesAplicacao"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="btnConfirmarAplicar">
+                    <i class="fas fa-check me-1"></i>Confirmar Aplicação
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmação para Excluir -->
+<div class="modal fade" id="modalConfirmarExcluir" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-trash me-2"></i>
+                    Confirmar Exclusão
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Tem certeza de que deseja excluir este recálculo temporário?</p>
+                <div id="detalhesExclusao"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="btnConfirmarExcluir">
+                    <i class="fas fa-trash me-1"></i>Confirmar Exclusão
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const loadingTemporarios = document.getElementById('loadingTemporarios');
+    const containerTemporarios = document.getElementById('containerTemporarios');
+    const nenhumTemporario = document.getElementById('nenhumTemporario');
+    const totalTemporarios = document.getElementById('totalTemporarios');
+    const corpoTabela = document.getElementById('corpoTabelaTemporarios');
+    
+    const modalConfirmarAplicar = new bootstrap.Modal(document.getElementById('modalConfirmarAplicar'));
+    const modalConfirmarExcluir = new bootstrap.Modal(document.getElementById('modalConfirmarExcluir'));
+    
+    let idTemporarioSelecionado = null;
+
+    // Carregar lista inicial
+    carregarTemporarios();
+
+    // Event listeners
+    document.getElementById('btnAtualizarLista').addEventListener('click', carregarTemporarios);
+    document.getElementById('btnConfirmarAplicar').addEventListener('click', aplicarDefinitivo);
+    document.getElementById('btnConfirmarExcluir').addEventListener('click', excluirTemporario);
+
+    function carregarTemporarios() {
+        loadingTemporarios.style.display = 'block';
+        containerTemporarios.style.display = 'none';
+        nenhumTemporario.style.display = 'none';
+
+        fetch('/recalculo/api/listar-temporarios')
+        .then(response => response.json())
+        .then(data => {
+            loadingTemporarios.style.display = 'none';
+            
+            if (data.success) {
+                exibirTemporarios(data.resultados);
+            } else {
+                mostrarErro('Erro ao carregar temporários: ' + data.error);
+            }
+        })
+        .catch(error => {
+            loadingTemporarios.style.display = 'none';
+            mostrarErro('Erro na requisição: ' + error.message);
+        });
+    }
+
+    function exibirTemporarios(temporarios) {
+        if (temporarios.length === 0) {
+            nenhumTemporario.style.display = 'block';
+            return;
+        }
+
+        totalTemporarios.textContent = temporarios.length;
+        corpoTabela.innerHTML = '';
+
+        temporarios.forEach(temp => {
+            const linha = document.createElement('tr');
+            linha.innerHTML = `
+                <td>
+                    <small class="text-muted">${formatarDataHora(temp.data_criacao)}</small>
+                </td>
+                <td>
+                    <strong>${temp.contrato}</strong><br>
+                    <small class="text-muted">${temp.campo} - Remessa ${temp.remessa}</small>
+                    <pre>${temp.idCCO}</pre>
+                </td>
+                <td>
+                    <span class="badge bg-primary">${temp.tipo_recalculo.replace('_', ' ')}</span>
+                </td>
+                <td>
+                    <span class="badge bg-info">${temp.modo_recalculo.replace('_', ' ')}</span>
+                </td>
+                <td>
+                    <small>${temp.observacoes || '-'}</small>
+                </td>
+                <td>
+                    <span class="badge bg-warning">Pendente</span>
+                </td>
+                <td>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button class="btn btn-success btn-aplicar" data-id="${temp.id}" title="Aplicar Definitivamente">
+                            <i class="fas fa-check"></i>
+                        </button>
+                        <button class="btn btn-primary btn-visualizar" data-id="${temp.id}" title="Visualizar Resultado">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                        <button class="btn btn-danger btn-excluir" data-id="${temp.id}" title="Excluir">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+            corpoTabela.appendChild(linha);
+        });
+
+        // Adicionar event listeners
+        document.querySelectorAll('.btn-aplicar').forEach(btn => {
+            btn.addEventListener('click', function() {
+                idTemporarioSelecionado = this.getAttribute('data-id');
+                const linha = this.closest('tr');
+                const contrato = linha.querySelector('td:nth-child(2) strong').textContent;
+                const campo = linha.querySelector('td:nth-child(2) small').textContent;
+                const idCCO = linha.querySelector('td:nth-child(2) pre').textContent;
+                
+                document.getElementById('detalhesAplicacao').innerHTML = `
+                    <strong>ID CCO:</strong> ${idCCO}<br>
+                    <strong>CCO:</strong> ${contrato}<br>
+                    <strong>Campo/Remessa:</strong> ${campo}<br>
+                    <strong>ID Temporário:</strong> ${idTemporarioSelecionado}
+                `;
+                
+                modalConfirmarAplicar.show();
+            });
+        });
+
+        document.querySelectorAll('.btn-visualizar').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const id = this.getAttribute('data-id');
+                // TODO: Implementar visualização do resultado temporário
+                alert('Funcionalidade de visualização em desenvolvimento');
+            });
+        });
+
+        document.querySelectorAll('.btn-excluir').forEach(btn => {
+            btn.addEventListener('click', function() {
+                idTemporarioSelecionado = this.getAttribute('data-id');
+                const linha = this.closest('tr');
+                const contrato = linha.querySelector('td:nth-child(2) strong').textContent;
+                const campo = linha.querySelector('td:nth-child(2) small').textContent;
+                const idCCO = linha.querySelector('td:nth-child(2) pre').textContent;
+                
+                document.getElementById('detalhesExclusao').innerHTML = `
+                    <strong>ID CCO:</strong> ${idCCO}<br>
+                    <strong>CCO:</strong> ${contrato}<br>
+                    <strong>Campo/Remessa:</strong> ${campo}<br>
+                    <strong>ID Temporário:</strong> ${idTemporarioSelecionado}
+                `;
+                
+                modalConfirmarExcluir.show();
+            });
+        });
+
+        containerTemporarios.style.display = 'block';
+    }
+
+    function aplicarDefinitivo() {
+        if (!idTemporarioSelecionado) return;
+
+        const btnConfirmar = document.getElementById('btnConfirmarAplicar');
+        btnConfirmar.disabled = true;
+        btnConfirmar.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Aplicando...';
+
+        fetch('/recalculo/api/aplicar-definitivo', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ id_temporario: idTemporarioSelecionado })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                modalConfirmarAplicar.hide();
+                mostrarSucesso('Recálculo aplicado definitivamente com sucesso!');
+                carregarTemporarios(); // Recarregar lista
+            } else {
+                mostrarErro('Erro ao aplicar recálculo: ' + data.error);
+            }
+        })
+        .catch(error => {
+            mostrarErro('Erro na requisição: ' + error.message);
+        })
+        .finally(() => {
+            btnConfirmar.disabled = false;
+            btnConfirmar.innerHTML = '<i class="fas fa-check me-1"></i>Confirmar Aplicação';
+            idTemporarioSelecionado = null;
+        });
+    }
+
+    function excluirTemporario() {
+        if (!idTemporarioSelecionado) return;
+
+        const btnConfirmar = document.getElementById('btnConfirmarExcluir');
+        btnConfirmar.disabled = true;
+        btnConfirmar.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Excluindo...';
+
+        // TODO: Implementar API de exclusão
+        setTimeout(() => {
+            modalConfirmarExcluir.hide();
+            mostrarSucesso('Recálculo temporário excluído com sucesso!');
+            carregarTemporarios(); // Recarregar lista
+            
+            btnConfirmar.disabled = false;
+            btnConfirmar.innerHTML = '<i class="fas fa-trash me-1"></i>Confirmar Exclusão';
+            idTemporarioSelecionado = null;
+        }, 1000);
+    }
+
+    function formatarDataHora(dataString) {
+        const data = new Date(dataString);
+        return data.toLocaleString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
+    function mostrarSucesso(mensagem) {
+        // TODO: Implementar toast mais elegante
+        alert(mensagem);
+    }
+
+    function mostrarErro(mensagem) {
+        // TODO: Implementar toast mais elegante
+        alert(mensagem);
+    }
+});
+</script>
+{% endblock %}

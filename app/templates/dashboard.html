@@ -1,0 +1,1388 @@
+<!-- templates/dashboard.html -->
+{% extends "base.html" %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<!-- Header com informações gerais -->
+<div class="d-flex justify-content-between align-items-center mb-4" style="max-width: 2000px">
+    <h1 class="h3">
+        <i class="fas fa-tachometer-alt me-2"></i>
+        Dashboard - Análise Remessas x CCOs
+        {% if stats.tipoAnalise == 'DETALHADA' %}
+        <span class="badge bg-success ms-2">Análise Detalhada</span>
+        {% else %}
+        <span class="badge bg-info ms-2">Análise Simplificada</span>
+        {% endif %}
+    </h1>
+    <div class="text-muted">
+        <small>
+            <i class="fas fa-calendar me-1"></i>
+            Contrato: {{ dados.parametros.contratoCPP }}
+            {% if dados.parametros.campo %}
+            / Campo: {{ dados.parametros.campo }}
+            {% endif %}
+            {% if dados.parametros.origemDoGasto %}
+            / {{ dados.parametros.origemDoGasto }}
+            {% endif %}
+            {% if dados.parametros.remessa %}
+            / Remessa: {{ dados.parametros.remessa }}
+            {% endif %}
+        </small>
+    </div>
+</div>
+
+<!-- Cards de Métricas -->
+<div class="row mb-2">
+    <div class="col-xl-2 col-md-6 mb-3">
+        <div class="card card-metric h-100">
+            <div class="card-body d-flex align-items-center">
+                <div class="flex-grow-1">
+                    <h6 class="card-title text-muted mb-1">Total de Remessas</h6>
+                    <h3 class="mb-0 text-primary">{{ stats.resumo_geral.total_remessas }}</h3>
+                </div>
+                <div class="metric-icon text-primary">
+                    <i class="fas fa-list-alt"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-2 col-md-6 mb-3">
+        <div class="card card-metric h-100">
+            <div class="card-body d-flex align-items-center">
+                <div class="flex-grow-1">
+                    <h6 class="card-title text-muted mb-1">Total de Fases</h6>
+                    <h3 class="mb-0 text-success">{{ stats.resumo_geral.total_fases }}</h3>
+                </div>
+                <div class="metric-icon text-success">
+                    <i class="fas fa-layer-group"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-2 col-md-6 mb-3">
+        <div class="card card-metric h-100">
+            <div class="card-body d-flex align-items-center">
+                <div class="flex-grow-1">
+                    <h6 class="card-title text-muted mb-1">CCOs Encontradas</h6>
+                    <h3 class="mb-0 text-info">{{ stats.resumo_geral.ccos_encontradas }}</h3>
+                </div>
+                <div class="metric-icon text-info">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-xl-2 col-md-6 mb-3">
+        <div class="card card-metric h-100">
+            <div class="card-body d-flex align-items-center">
+                <div class="flex-grow-1">
+                    <h6 class="card-title text-muted mb-1">CCOs Não Encontradas</h6>
+                    <h3 class="mb-0 text-warning">{{ stats.resumo_geral.ccos_nao_encontradas }}</h3>
+                </div>
+                <div class="metric-icon text-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-2 col-md-6 mb-3">
+        <div class="card card-metric h-100">
+            <div class="card-body d-flex align-items-center">
+                <div class="flex-grow-1">
+                    <h6 class="card-title text-muted mb-1">Fases com CCOs Duplicadas</h6>
+                    <h3 class="mb-0 text-danger">{{ stats.resumo_geral.fases_com_ccos_duplicadas }}</h3>
+                </div>
+                <div class="metric-icon text-danger">
+                    <i class="fas fa-exclamation-circle"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Cards adicionais para análise detalhada -->
+{% if stats.tipoAnalise == 'DETALHADA' and stats.consolidacao_detalhada %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-pie me-2"></i>
+                    Consolidação Geral dos Gastos
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h4 class="text-primary">{{ stats.consolidacao_detalhada.contadores.total | int }}</h4>
+                            <small class="text-muted">Total de Gastos</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h4 class="text-success">R$ {{ "{:,.2f}".format(stats.consolidacao_detalhada.valores.reconhecido).replace(",", "X").replace(".", ",").replace("X", ".") }}</h4>
+                            <small class="text-muted">Valor Reconhecido</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h4 class="text-warning">{{ stats.consolidacao_detalhada.contadores.recAutomatico | int }}</h4>
+                            <small class="text-muted">Reconh. Automáticos</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h4 class="text-info">R$ {{ "{:,.2f}".format(stats.valores.total_overhead).replace(",", "X").replace(".", ",").replace("X", ".") }}</h4>
+                            <small class="text-muted">Total Overhead</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Gráficos -->
+<div class="row mb-4">
+    <!-- Distribuição de Fases -->
+    <div class="col-lg-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-pie-chart me-2"></i>
+                    Distribuição por Fase
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="graficoFases"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Valores por Exercício -->
+    <div class="col-lg-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-bar-chart me-2"></i>
+                    Valores por Exercício
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="graficoExercicios"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Gráficos específicos para análise detalhada -->
+{% if stats.tipoAnalise == 'DETALHADA' and stats.consolidacao_detalhada %}
+<div class="row mb-4">
+    <div class="col-lg-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-tags me-2"></i>
+                    Top Classificações
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="graficoClassificacoes"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-users me-2"></i>
+                    Top Responsáveis
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="graficoResponsaveis"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-coins me-2"></i>
+                    Correções Monetárias
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="graficoCorrecoes"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Timeline de Reconhecimentos -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-timeline me-2"></i>
+                    Timeline de Reconhecimentos
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container" style="height: 400px;">
+                    <canvas id="graficoTimeline"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Estatísticas Detalhadas -->
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-area me-2"></i>
+                    Valores por Remessa
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="graficoValores"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Informações Gerais
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <small class="text-muted">Total Reconhecido (Remessas)</small>
+                    <h6>R$ {{ "{:,.2f}".format(stats.valores.total_reconhecido_remessas).replace(",", "X").replace(".", ",").replace("X", ".") }}</h6>
+                </div>
+                
+                <div class="mb-3">
+                    <small class="text-muted">Total Reconhecido (CCOs)</small>
+                    <h6>R$ {{ "{:,.2f}".format(stats.valores.total_reconhecido_ccos).replace(",", "X").replace(".", ",").replace("X", ".") }}</h6>
+                </div>
+                
+                {% if stats.valores.total_overhead > 0 %}
+                <div class="mb-3">
+                    <small class="text-muted">Total Overhead</small>
+                    <h6>R$ {{ "{:,.2f}".format(stats.valores.total_overhead).replace(",", "X").replace(".", ",").replace("X", ".") }}</h6>
+                </div>
+                {% endif %}
+                
+                {% if stats.valores.total_correcoes_monetarias > 0 %}
+                <div class="mb-3">
+                    <small class="text-muted">Correções Monetárias</small>
+                    <h6>R$ {{ "{:,.2f}".format(stats.valores.total_correcoes_monetarias).replace(",", "X").replace(".", ",").replace("X", ".") }}</h6>
+                </div>
+                {% endif %}
+                
+                {% if stats.datas.primeira_remessa %}
+                <div class="mb-3">
+                    <small class="text-muted">Primeira Remessa</small>
+                    <h6>{{ stats.datas.primeira_remessa }}</h6>
+                </div>
+                
+                <div class="mb-3">
+                    <small class="text-muted">Última Remessa</small>
+                    <h6>{{ stats.datas.ultima_remessa }}</h6>
+                </div>
+                {% endif %}
+                
+                <div class="mb-3">
+                    <small class="text-muted">Maior Valor</small>
+                    <h6>R$ {{ "{:,.2f}".format(stats.valores.maior_valor_remessa).replace(",", "X").replace(".", ",").replace("X", ".") }}</h6>
+                </div>
+                
+                <div class="mb-3">
+                    <small class="text-muted">Menor Valor</small>
+                    <h6>R$ {{ "{:,.2f}".format(stats.valores.menor_valor_remessa).replace(",", "X").replace(".", ",").replace("X", ".") }}</h6>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabela Detalhada -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-table me-2"></i>
+                    Detalhamento por Remessa e Fase
+                    {% if stats.tipoAnalise == 'DETALHADA' %}
+                    <span class="badge bg-success ms-2">Com Consolidações</span>
+                    {% endif %}
+                </h5>
+                <div>
+                    <button class="btn btn-outline-primary btn-sm" onclick='exportarCSV({{dados.parametros | tojson }})'>
+                        <i class="fas fa-download me-1"></i>
+                        Exportar CSV
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table id="tabelaDetalhada" class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Ações</th>
+                                <th>Remessa</th>
+                                <th>Exercício</th>
+                                <th>Período</th>
+                                <th>Contrato</th>
+                                <th>Campo</th>
+                                <th>Fase</th>
+                                <th>Data Reconh.</th>
+                                {% if stats.tipoAnalise == 'DETALHADA' %}
+                                <th>Valor Fase</th>
+                                <th>Qtd Gastos</th>
+                                <th>Rec. Auto.</th>
+                                <th>Top Classif.</th>
+                                {% else %}
+                                <th>Valor Reconhecido</th>
+                                {% endif %}
+                                <th>CCO</th>
+                                <th>Valor CCO</th>
+                                <th>Overhead</th>
+                                {% if stats.tipoAnalise == 'DETALHADA' %}
+                                <th>Correção Mon.</th>
+                                <th>Taxa Corr.</th>
+                                {% endif %}
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Dados carregados via JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para detalhes da remessa -->
+<div class="modal fade" id="modalRemessaDetalhes" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-list-alt me-2"></i>
+                    Detalhes da Remessa
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="conteudoModalRemessa">
+                <!-- Conteúdo carregado via JavaScript -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para detalhes da CCO -->
+<div class="modal fade" id="modalCCODetalhes" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-file-invoice-dollar me-2"></i>
+                    Detalhes da CCO
+                    <a href="#" onclick="abrirTimelineCCO(this.getAttribute('data-cco-id'))" 
+                    class="btn btn-sm btn-outline-success ms-3" 
+                    id="btnTimelineCCO" 
+                    title="Ver Timeline Completa">
+                        <i class="fas fa-history me-1"></i>Timeline
+                    </a>
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="conteudoModalCCO">
+                <!-- Conteúdo carregado via JavaScript -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Configuração de cores para gráficos
+    const cores = {
+        primaria: '#0d6efd',
+        secundaria: '#6c757d',
+        sucesso: '#198754',
+        info: '#0dcaf0',
+        aviso: '#ffc107',
+        perigo: '#dc3545',
+        palette: ['#0d6efd', '#198754', '#ffc107', '#dc3545', '#0dcaf0', '#6f42c1', '#fd7e14', '#20c997']
+    };
+
+    const isAnaliseDetalhada = {{ 'true' if stats.tipoAnalise == 'DETALHADA' else 'false' }};
+
+    // Gráficos básicos
+    carregarGraficoFases();
+    carregarGraficoExercicios();
+    carregarGraficoTimeline();
+    carregarGraficoValores();
+    
+    // Gráficos específicos para análise detalhada
+    if (isAnaliseDetalhada) {
+        carregarGraficoClassificacoes();
+        carregarGraficoResponsaveis();
+        carregarGraficoCorrecoes();
+    }
+    
+    // Tabela Detalhada
+    carregarTabelaDetalhada();
+    
+    // Event listeners para modais
+    window.mostrarDetalhesRemessa = function(remessaId) {
+        console.log(remessaId);
+        fetch('/api/remessa-detalhada/' + remessaId)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('conteudoModalRemessa').innerHTML = gerarConteudoModalRemessa(data);
+                new bootstrap.Modal(document.getElementById('modalRemessaDetalhes')).show();
+            })
+            .catch(error => {
+                console.error('Erro ao carregar detalhes da remessa:', error);
+                alert('Erro ao carregar detalhes da remessa');
+            });
+    };
+    
+    window.abrirTimelineCCO = function(ccoId) {
+        window.open(`/cco-timeline/${ccoId}`, '_blank');
+    };
+
+    window.mostrarDetalhesCCO = function(ccoId) {
+        document.getElementById('btnTimelineCCO').setAttribute('data-cco-id', ccoId);
+        fetch('/api/cco-detalhada/' + ccoId)
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('conteudoModalCCO').innerHTML = gerarConteudoModalCCO(data);
+                new bootstrap.Modal(document.getElementById('modalCCODetalhes')).show();
+            })
+            .catch(error => {
+                console.error('Erro ao carregar detalhes da CCO:', error);
+                alert('Erro ao carregar detalhes da CCO');
+            });
+    };
+    
+    function carregarGraficoClassificacoes() {
+        const classificacoes = {{ stats.consolidacao_detalhada.classificacoes | tojson if stats.tipoAnalise == 'DETALHADA' else '{}' }};
+        const labels = Object.keys(classificacoes);
+        const valores = Object.values(classificacoes);
+        
+        const ctx = document.getElementById('graficoClassificacoes').getContext('2d');
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: valores,
+                    backgroundColor: cores.palette,
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    }
+    
+    function carregarGraficoResponsaveis() {
+        const responsaveis = {{ stats.consolidacao_detalhada.responsaveis | tojson if stats.tipoAnalise == 'DETALHADA' else '{}' }};
+        const sorted = Object.entries(responsaveis)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 8); // Top 8
+        
+        const labels = sorted.map(item => item[0]);
+        const valores = sorted.map(item => item[1]);
+        
+        const ctx = document.getElementById('graficoResponsaveis').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Quantidade de Gastos',
+                    data: valores,
+                    backgroundColor: cores.info,
+                    borderColor: cores.primaria,
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Quantidade'
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    function carregarGraficoCorrecoes() {
+        const dados = [
+            { label: 'Valor Original', valor: {{ stats.valores.total_reconhecido_ccos }} },
+            { label: 'Overhead', valor: {{ stats.valores.total_overhead }} },
+            { label: 'Correção Monetária', valor: {{ stats.valores.total_correcoes_monetarias }} }
+        ];
+        
+        const ctx = document.getElementById('graficoCorrecoes').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: dados.map(d => d.label),
+                datasets: [{
+                    label: 'Valor (R$)',
+                    data: dados.map(d => d.valor),
+                    backgroundColor: [cores.primaria, cores.aviso, cores.sucesso],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Valor (R$)'
+                        }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': R$ ' + 
+                                       context.parsed.y.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    function carregarTabelaDetalhada() {
+        fetch('/api/remessas-detalhadas')
+            .then(response => response.json())
+            .then(data => {
+                const tbody = document.querySelector('#tabelaDetalhada tbody');
+                tbody.innerHTML = '';
+                
+                data.forEach(item => {
+                    const tr = document.createElement('tr');
+                    
+                    // Formatar data
+                    let dataFormatada = '';
+                    if (item.dataReconhecimento) {
+                        const data = new Date(item.dataReconhecimento);
+                        dataFormatada = data.toLocaleDateString('pt-BR');
+                    }
+                    
+                    // Status badge
+                    let statusBadge = '';
+                    if (item.ccoEncontrada === 'Sim') {
+                        statusBadge = '<span class="badge bg-success status-badge">Encontrada</span>';
+                    }else if (item.ccoEncontrada === 'DUPLICADAS') {
+                        statusBadge = '<span class="badge bg-danger status-badge">Duplicadas</span>';
+                    }else {
+                        statusBadge = '<span class="badge bg-warning status-badge">Não Encontrada</span>';
+                    }
+                    
+                    // Botões de ação
+                    let botoesAcao = `
+                        <button class="btn btn-sm btn-outline-info me-1" onclick="mostrarDetalhesRemessa('${item.remessaId}')" title="Detalhes da Remessa">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    `;
+                    
+                    if (item.ccoId) {
+                        botoesAcao += `
+                            <button class="btn btn-sm btn-outline-primary" onclick="mostrarDetalhesCCO('${item.ccoId}')" title="Detalhes da CCO">
+                                <i class="fas fa-file-invoice-dollar"></i>
+                            </button>
+                        `;
+                    }
+                    
+                    let htmlRow = `
+                        <td>${botoesAcao}</td>
+                        <td>${item.remessa}</td>
+                        <td>${item.exercicio}</td>
+                        <td>${item.periodo}</td>
+                        <td>${item.contratoCPP}</td>
+                        <td>${item.campo}</td>
+                        <td><span class="badge bg-primary status-badge">${item.fase}</span></td>
+                        <td>${dataFormatada}</td>
+                    `;
+                    
+                    if (isAnaliseDetalhada) {
+                        htmlRow += `
+                            <td>R$ ${item.valorReconhecidoFase.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                            <td>${item.quantidadeGastosFase}</td>
+                            <td>${item.reconhecidosAutomaticosFase}</td>
+                            <td><small>${item.classificacoesTop}</small></td>
+                        `;
+                    } else {
+                        htmlRow += `
+                            <td>R$ ${item.valorReconhecidoFase.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                        `;
+                    }
+                    
+                    htmlRow += `
+                        <td>${statusBadge}</td>
+                        <td>R$ ${item.valorCCO.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                        <td>R$ ${item.overheadTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                    `;
+                    
+                    if (isAnaliseDetalhada) {
+                        htmlRow += `
+                            <td>R$ ${item.correcaoMonetaria.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                            <td>${item.taxaCorrecao ? (item.taxaCorrecao * 100).toFixed(2) + '%' : '-'}</td>
+                        `;
+                    }
+                    
+                    htmlRow += `<td><small class="text-muted">${item.statusCCO}</small></td>`;
+                    
+                    tr.innerHTML = htmlRow;
+                    tbody.appendChild(tr);
+                });
+                
+                // Inicializar DataTable
+                $('#tabelaDetalhada').DataTable({
+                    language: {
+                        url: 'https://cdn.datatables.net/plug-ins/1.13.4/i18n/pt-BR.json'
+                    },
+                    order: [[1, 'asc']], // Ordenar por remessa
+                    pageLength: 25,
+                    responsive: true,
+                    scrollX: true,
+                    columnDefs: [
+                        { targets: 0, orderable: false }, // Coluna de ações não ordenável
+                        { targets: [8, 10, 11], className: 'text-end' } // Colunas de valores alinhadas à direita
+                    ]
+                });
+            })
+            .catch(error => console.error('Erro ao carregar tabela:', error));
+    }
+    
+    function gerarConteudoModalRemessa(data) {
+        let html = `
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Informações Básicas</h6>
+                    <table class="table table-sm">
+                        <tr><td><strong>Remessa:</strong></td><td>${data.informacoes_basicas.remessa}</td></tr>
+                        <tr><td><strong>Contrato:</strong></td><td>${data.informacoes_basicas.contratoCPP}</td></tr>
+                        <tr><td><strong>Campo:</strong></td><td>${data.informacoes_basicas.campo}</td></tr>
+                        <tr><td><strong>Exercício/Período:</strong></td><td>${data.informacoes_basicas.exercicio}/${data.informacoes_basicas.periodo}</td></tr>
+                        <tr><td><strong>Mês/Ano Ref.:</strong></td><td>${data.informacoes_basicas.mesAnoReferencia}</td></tr>
+                        <tr><td><strong>Fase Atual:</strong></td><td><span class="badge bg-info">${data.informacoes_basicas.faseRemessaAtual}</span></td></tr>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <h6>Resumo CCOs</h6>
+                    <table class="table table-sm">
+                        <tr><td><strong>Total CCOs:</strong></td><td>${data.resumo_ccos.total_ccos}</td></tr>
+                        <tr><td><strong>CCOs Encontradas:</strong></td><td>${data.resumo_ccos.ccos_encontradas}</td></tr>
+                        <tr><td><strong>Valor Total CCOs:</strong></td><td>R$ ${data.resumo_ccos.valor_total_ccos.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td></tr>
+                        <tr><td><strong>Overhead Total:</strong></td><td>R$ ${data.resumo_ccos.overhead_total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td></tr>
+                        <tr><td><strong>Correções Mon.:</strong></td><td>R$ ${data.resumo_ccos.correcoes_monetarias_total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td></tr>
+                    </table>
+                </div>
+            </div>
+        `;
+        
+        // Consolidação da remessa (se análise detalhada)
+        if (data.consolidacao_remessa) {
+            html += `
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <h6>Consolidação da Remessa</h6>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <h6 class="text-primary">Valores</h6>
+                                <table class="table table-sm">
+                                    <tr><td>Lançamento Total:</td><td>R$ ${data.consolidacao_remessa.valores.lancamentoTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td></tr>
+                                    <tr><td>Reconhecido:</td><td>R$ ${data.consolidacao_remessa.valores.reconhecido.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td></tr>
+                                    <tr><td>Não Reconhecido:</td><td>R$ ${data.consolidacao_remessa.valores.naoReconhecido.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td></tr>
+                                </table>
+                            </div>
+                            <div class="col-md-4">
+                                <h6 class="text-success">Contadores</h6>
+                                <table class="table table-sm">
+                                    <tr><td>Total Gastos:</td><td>${data.consolidacao_remessa.contadores.total}</td></tr>
+                                    <tr><td>Rec. Automáticos:</td><td>${data.consolidacao_remessa.contadores.recAutomatico}</td></tr>
+                                    <tr><td>Não Reconhecidos:</td><td>${data.consolidacao_remessa.contadores.naoReconhecido}</td></tr>
+                                </table>
+                            </div>
+                            <div class="col-md-4">
+                                <h6 class="text-info">Distribuições</h6>
+                                <p><strong>Classificações:</strong><br>
+                                ${Object.entries(data.consolidacao_remessa.classificacoes).map(([k,v]) => `${k}: ${v}`).join('<br>')}</p>
+                                <p><strong>Responsáveis:</strong><br>
+                                ${Object.entries(data.consolidacao_remessa.responsaveis).map(([k,v]) => `${k}: ${v}`).join('<br>')}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Fases detalhadas
+        html += `
+            <div class="row mt-3">
+                <div class="col-12">
+                    <h6>Fases de Reconhecimento</h6>
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Fase</th>
+                                    <th>Data Reconh.</th>
+                                    <th>CCO</th>
+                                    <th>Valor CCO</th>
+                                    <th>Overhead</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+        `;
+        
+        data.fases.forEach(fase => {
+            const dataReconh = fase.dataReconhecimento ? new Date(fase.dataReconhecimento).toLocaleDateString('pt-BR') : '-';
+            const temCCO = fase.cco && fase.cco.statusCCO === 'ENCONTRADA';
+            
+            html += `
+                <tr>
+                    <td><span class="badge bg-primary">${fase.fase}</span></td>
+                    <td>${dataReconh}</td>
+                    <td>${temCCO ? '<span class="badge bg-success">Sim</span>' : '<span class="badge bg-warning">Não</span>'}</td>
+                    <td>${temCCO ? 'R$ ' + fase.cco.valores_atuais.valorReconhecidoComOH.toLocaleString('pt-BR', {minimumFractionDigits: 2}) : '-'}</td>
+                    <td>${temCCO ? 'R$ ' + fase.cco.valores_atuais.overHeadTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2}) : '-'}</td>
+                    <td>
+                        ${temCCO ? `<button class="btn btn-sm btn-outline-primary" onclick="mostrarDetalhesCCO('${fase.cco.id}')">Ver CCO</button>` : '-'}
+                    </td>
+                </tr>
+            `;
+        });
+        
+        html += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        return html;
+    }
+    
+    function gerarConteudoModalCCO(data) {
+        let html = `
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Informações Básicas</h6>
+                    <table class="table table-sm">
+                        <tr><td><strong>ID:</strong></td><td><code>${data.informacoes_basicas.id}</code></td></tr>
+                        <tr><td><strong>Contrato:</strong></td><td>${data.informacoes_basicas.contratoCpp}</td></tr>
+                        <tr><td><strong>Campo:</strong></td><td>${data.informacoes_basicas.campo}</td></tr>
+                        <tr><td><strong>Remessa:</strong></td><td>${data.informacoes_basicas.remessa}</td></tr>
+                        <tr><td><strong>Fase:</strong></td><td><span class="badge bg-primary">${data.informacoes_basicas.faseRemessa}</span></td></tr>
+                        <tr><td><strong>Exercício/Período:</strong></td><td>${data.informacoes_basicas.exercicio}/${data.informacoes_basicas.periodo}</td></tr>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <h6>Datas</h6>
+                    <table class="table table-sm">
+        `;
+        
+        Object.entries(data.datas).forEach(([key, value]) => {
+            if (value) {
+                const dataFormatada = new Date(value).toLocaleString('pt-BR');
+                const label = key === 'dataReconhecimento' ? 'Reconhecimento' :
+                             key === 'dataLancamento' ? 'Lançamento' :
+                             key === 'dataCorrecao' ? 'Correção' : 'Criação Correção';
+                html += `<tr><td><strong>${label}:</strong></td><td>${dataFormatada}</td></tr>`;
+            }
+        });
+        
+        html += `
+                    </table>
+                </div>
+            </div>
+            
+            <div class="row mt-3">
+                <div class="col-md-6">
+                    <h6>Valores Atuais
+                        <button class="btn btn-sm btn-outline-secondary ms-2" onclick="toggleValoresExtras()" id="btnToggleValores">
+                            <i class="fas fa-eye me-1"></i>Mostrar Mais
+                        </button>
+                    </h6>
+                    <table class="table table-sm">
+                        <tr><td><strong>Valor Reconhecido:</strong></td><td>R$ ${data.valores_atuais.valorReconhecido.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td></tr>
+                        <tr><td><strong>Valor Rec. c/ OH:</strong></td><td>R$ ${data.valores_atuais.valorReconhecidoComOH.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td></tr>
+                        <tr><td><strong>Overhead Total:</strong></td><td>R$ ${data.valores_atuais.overHeadTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td></tr>
+                        <tr><td><strong>Exploração:</strong></td><td>R$ ${data.valores_atuais.valorReconhecidoExploracao.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td></tr>
+                        <tr><td><strong>Produção:</strong></td><td>R$ ${data.valores_atuais.valorReconhecidoProducao.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td></tr>
+                        
+                        <!-- Valores extras (inicialmente ocultos) -->
+                        <tbody id="valoresExtras" style="display: none;">
+                            <tr><td><strong>Valor Lançamento Total:</strong></td><td>R$ ${data.valores_atuais.valorLancamentoTotal?.toLocaleString('pt-BR', {minimumFractionDigits: 2}) || '0,00'}</td></tr>
+                            <tr><td><strong>Valor Reconhecível:</strong></td><td>R$ ${data.valores_atuais.valorReconhecivel?.toLocaleString('pt-BR', {minimumFractionDigits: 2}) || '0,00'}</td></tr>
+                            <tr><td><strong>Valor Não Reconhecido:</strong></td><td>R$ ${data.valores_atuais.valorNaoReconhecido?.toLocaleString('pt-BR', {minimumFractionDigits: 2}) || '0,00'}</td></tr>
+                            <tr><td><strong>Valor Não Passível Rec.:</strong></td><td>R$ ${data.valores_atuais.valorNaoPassivelRecuperacao?.toLocaleString('pt-BR', {minimumFractionDigits: 2}) || '0,00'}</td></tr>
+                            <tr><td><strong>Valor Rec. c/ OH Original:</strong></td><td>R$ ${data.valores_atuais.valorReconhecidoComOhOriginal?.toLocaleString('pt-BR', {minimumFractionDigits: 2}) || '0,00'}</td></tr>
+                            <tr><td><strong>Overhead Exploração:</strong></td><td>R$ ${data.valores_atuais.overHeadExploracao?.toLocaleString('pt-BR', {minimumFractionDigits: 2}) || '0,00'}</td></tr>
+                            <tr><td><strong>Overhead Produção:</strong></td><td>R$ ${data.valores_atuais.overHeadProducao?.toLocaleString('pt-BR', {minimumFractionDigits: 2}) || '0,00'}</td></tr>
+                            <tr><td><strong>Quantidade Lançamento:</strong></td><td>${data.valores_atuais.quantidadeLancamento || 0}</td></tr>
+                            <tr><td><strong>Flag Recuperado:</strong></td><td><span class="badge ${data.valores_atuais.flgRecuperado ? 'bg-success' : 'bg-secondary'}">${data.valores_atuais.flgRecuperado ? 'Sim' : 'Não'}</span></td></tr>
+                            <tr><td><strong>Transferência:</strong></td><td>${data.valores_atuais.transferencia || 'N/A'}</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <h6>Correção Monetária</h6>
+                    <table class="table table-sm">
+        `;
+        
+        if (data.correcao_monetaria.aplicada) {
+            html += `
+                        <tr><td><strong>Tipo:</strong></td><td><span class="badge bg-info">${data.correcao_monetaria.tipo}</span></td></tr>
+                        <tr><td><strong>Taxa:</strong></td><td>${(data.correcao_monetaria.taxaCorrecao * 100).toFixed(4)}%</td></tr>
+                        <tr><td><strong>IGPM Acumulado:</strong></td><td>${(data.correcao_monetaria.igpmAcumulado * 100).toFixed(4)}%</td></tr>
+                        <tr><td><strong>Diferença Valor:</strong></td><td>R$ ${data.correcao_monetaria.diferencaValor.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td></tr>
+                        <tr><td><strong>Status:</strong></td><td><span class="badge ${data.correcao_monetaria.ativo ? 'bg-success' : 'bg-secondary'}">${data.correcao_monetaria.ativo ? 'Ativo' : 'Inativo'}</span></td></tr>
+            `;
+        } else {
+            html += '<tr><td colspan="2"><em>Nenhuma correção monetária aplicada</em></td></tr>';
+        }
+        
+        html += `
+                    </table>
+                </div>
+            </div>
+            
+            <div class="row mt-3">
+                <div class="col-12">
+                    <h6>Contexto da Remessa</h6>
+                    <div class="alert alert-info">
+                        <strong>Remessa ${data.contexto_remessa.remessaNumero}</strong> - 
+                        ${data.contexto_remessa.exercicio}/${data.contexto_remessa.periodo} - 
+                        Fase: <span class="badge bg-primary">${data.contexto_remessa.fase}</span>
+                        <br>
+                        <small>Período de referência: ${data.contexto_remessa.mesAnoReferencia}</small>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        if (data.contexto_remessa.consolidacao_fase) {
+            html += `
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <h6>Consolidação da Fase</h6>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <strong>Valores da Fase:</strong>
+                                <ul class="list-unstyled">
+                                    <li>Reconhecido: R$ ${data.contexto_remessa.consolidacao_fase.valores.reconhecido.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</li>
+                                    <li>Total: R$ ${data.contexto_remessa.consolidacao_fase.valores.lancamentoTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-4">
+                                <strong>Contadores:</strong>
+                                <ul class="list-unstyled">
+                                    <li>Total Gastos: ${data.contexto_remessa.consolidacao_fase.contadores.total}</li>
+                                    <li>Reconhecidos: ${data.contexto_remessa.consolidacao_fase.contadores.recAutomatico}</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-4">
+                                <strong>Top Classificações:</strong>
+                                <ul class="list-unstyled">
+                                    ${Object.entries(data.contexto_remessa.consolidacao_fase.classificacoes)
+                                        .sort((a,b) => b[1] - a[1])
+                                        .slice(0,3)
+                                        .map(([k,v]) => `<li>${k}: ${v}</li>`)
+                                        .join('')}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        return html;
+    }
+    
+    // Funções de gráficos principais
+    function carregarGraficoFases() {
+        fetch('/api/dados-grafico/distribuicao_fases')
+            .then(response => response.json())
+            .then(data => {
+                const ctx = document.getElementById('graficoFases').getContext('2d');
+                new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: data.map(item => item.fase),
+                        datasets: [{
+                            data: data.map(item => item.count),
+                            backgroundColor: cores.palette,
+                            borderWidth: 2,
+                            borderColor: '#fff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                        return context.label + ': ' + context.parsed + ' (' + percentage + '%)';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            })
+            .catch(error => console.error('Erro ao carregar gráfico de fases:', error));
+    }
+    
+    function carregarGraficoExercicios() {
+        const exercicios = {{ stats.por_exercicio | tojson }};
+        const labels = Object.keys(exercicios).sort();
+        const valores = labels.map(ex => exercicios[ex].valor_total);
+        const remessas = labels.map(ex => exercicios[ex].remessas);
+        
+        const ctx = document.getElementById('graficoExercicios').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Valor Total (R$)',
+                    data: valores,
+                    backgroundColor: cores.primaria,
+                    borderColor: cores.primaria,
+                    borderWidth: 1,
+                    yAxisID: 'y'
+                }, {
+                    label: 'Quantidade de Remessas',
+                    data: remessas,
+                    backgroundColor: cores.sucesso,
+                    borderColor: cores.sucesso,
+                    borderWidth: 1,
+                    type: 'line',
+                    yAxisID: 'y1'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: 'Valor Total (R$)'
+                        }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: 'Quantidade de Remessas'
+                        },
+                        grid: {
+                            drawOnChartArea: false,
+                        },
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                if (context.datasetIndex === 0) {
+                                    return 'Valor: R$ ' + context.parsed.y.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+                                } else {
+                                    return 'Remessas: ' + context.parsed.y;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    function carregarGraficoTimeline() {
+        fetch('/api/dados-grafico/timeline_reconhecimento')
+            .then(response => response.json())
+            .then(data => {
+                // Agrupar por mês
+                const agrupado = {};
+                data.forEach(item => {
+                    const data = new Date(item.data);
+                    const chave = data.getFullYear() + '-' + String(data.getMonth() + 1).padStart(2, '0');
+                    
+                    if (!agrupado[chave]) {
+                        agrupado[chave] = {
+                            count: 0,
+                            valor: 0,
+                            fases: {}
+                        };
+                    }
+                    
+                    //agrupado[chave].count++;  --> para somar a quantidade de fases
+                    agrupado[chave].count += item.quantidadeItens; // para somar a quantidade de reconhecimentos
+                    agrupado[chave].valor += item.valor;
+                    agrupado[chave].fases[item.fase] = (agrupado[chave].fases[item.fase] || 0) + 1;
+                });
+                
+                const labels = Object.keys(agrupado).sort();
+                const counts = labels.map(label => agrupado[label].count);
+                const valores = labels.map(label => agrupado[label].valor);
+                
+                const ctx = document.getElementById('graficoTimeline').getContext('2d');
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Quantidade de Itens Reconhecidos',
+                            data: counts,
+                            borderColor: cores.primaria,
+                            backgroundColor: cores.primaria + '20',
+                            fill: true,
+                            tension: 0.4,
+                            yAxisID: 'y'
+                        }, {
+                            label: 'Valor Total (R$)',
+                            data: valores,
+                            borderColor: cores.sucesso,
+                            backgroundColor: cores.sucesso + '20',
+                            fill: false,
+                            tension: 0.4,
+                            yAxisID: 'y1'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Período (Ano-Mês)'
+                                }
+                            },
+                            y: {
+                                type: 'linear',
+                                display: true,
+                                position: 'left',
+                                title: {
+                                    display: true,
+                                    text: 'Quantidade'
+                                }
+                            },
+                            y1: {
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                title: {
+                                    display: true,
+                                    text: 'Valor (R$)'
+                                },
+                                grid: {
+                                    drawOnChartArea: false,
+                                }
+                            }
+                        },
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        if (context.datasetIndex === 0) {
+                                            return 'Reconhecimentos: ' + context.parsed.y;
+                                        } else {
+                                            return 'Valor: R$ ' + context.parsed.y.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            })
+            .catch(error => console.error('Erro ao carregar timeline:', error));
+    }
+    
+    function carregarGraficoValores() {
+        fetch('/api/dados-grafico/valores_remessa')
+            .then(response => response.json())
+            .then(data => {
+                const ctx = document.getElementById('graficoValores').getContext('2d');
+                new Chart(ctx, {
+                    type: 'scatter',
+                    data: {
+                        datasets: [{
+                            label: 'Valores por Remessa',
+                            data: data.map(item => ({
+                                x: item.remessa,
+                                y: item.valorReconhecido, // ou escolher qual valor mostrar
+                                exercicio: item.exercicio,
+                                periodo: item.periodo,
+                                fases: item.fases,
+                                valorLancamento: item.valorLancamentoTotal,
+                                valorNaoReconhecido: item.valorNaoReconhecido,
+                                valorRecusado: item.valorRecusado
+                            })),
+                            backgroundColor: cores.info,
+                            borderColor: cores.primaria,
+                            borderWidth: 2,
+                            pointRadius: 6,
+                            pointHoverRadius: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Número da Remessa'
+                                },
+                                ticks: {
+                                    stepSize: 1
+                                }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Valor Reconhecido (R$)'
+                                }
+                            }
+                        },
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const point = context.raw;
+                                        return [
+                                            'Remessa: ' + point.x,
+                                            'Exercício: ' + point.exercicio,
+                                            'Período: ' + point.periodo,
+                                            'Fases: ' + point.fases,
+                                            'Valor: R$ ' + point.y.toLocaleString('pt-BR', {minimumFractionDigits: 2})
+                                        ];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            })
+            .catch(error => console.error('Erro ao carregar gráfico de valores:', error));
+    }
+});
+
+window.toggleValoresExtras = function() {
+    const valoresExtras = document.getElementById('valoresExtras');
+    const btn = document.getElementById('btnToggleValores');
+    
+    if (valoresExtras.style.display === 'none') {
+        valoresExtras.style.display = 'table-row-group';
+        btn.innerHTML = '<i class="fas fa-eye-slash me-1"></i>Mostrar Menos';
+    } else {
+        valoresExtras.style.display = 'none';
+        btn.innerHTML = '<i class="fas fa-eye me-1"></i>Mostrar Mais';
+    }
+};
+
+function exportarCSV(parametros) {
+    console.log(`parametros: ${JSON.stringify(parametros)}`);
+
+    fetch('/api/remessas-detalhadas')
+        .then(response => response.json())
+        .then(data => {
+            const isDetalhada = {{ 'true' if stats.tipoAnalise == 'DETALHADA' else 'false' }};
+            
+            // Criar CSV com headers
+            let headers = ['Remessa', 'Exercício', 'Período', 'Contrato', 'Campo', 'Fase', 'Data Reconh.'];
+            
+            if (isDetalhada) {
+                headers.push('Valor Fase', 'Qtd Gastos', 'Rec. Auto.', 'Top Classif.', 'CCO', 'Valor CCO', 'Overhead', 'Correção Mon.', 'Taxa Corr.', 'Status CCO');
+            } else {
+                headers.push('Valor Reconhecido', 'CCO', 'Valor CCO', 'Status CCO');
+            }
+            
+            let csvContent = headers.join(';') + '\n';
+            
+            data.forEach(item => {
+                let row = [
+                    escaparCSV(item.remessa),
+                    escaparCSV(item.exercicio),
+                    escaparCSV(item.periodo),
+                    escaparCSV(item.contratoCPP),
+                    escaparCSV(item.campo),
+                    escaparCSV(item.fase),
+                    escaparCSV(item.dataReconhecimento ? new Date(item.dataReconhecimento).toLocaleDateString('pt-BR') : '')
+                ];
+                
+                if (isDetalhada) {
+                    row.push(
+                        escaparCSV(formatarNumero(item.valorReconhecidoFase)),
+                        escaparCSV(item.quantidadeGastosFase),
+                        escaparCSV(item.reconhecidosAutomaticosFase),
+                        escaparCSV(item.classificacoesTop),
+                        escaparCSV(item.ccoEncontrada),
+                        escaparCSV(formatarNumero(item.valorCCO)),
+                        escaparCSV(formatarNumero(item.overheadTotal)),
+                        escaparCSV(formatarNumero(item.correcaoMonetaria)),
+                        escaparCSV(item.taxaCorrecao ? (item.taxaCorrecao * 100).toFixed(4) + '%' : ''),
+                        escaparCSV(item.statusCCO)
+                    );
+                } else {
+                    row.push(
+                        escaparCSV(formatarNumero(item.valorReconhecidoFase)),
+                        escaparCSV(item.ccoEncontrada),
+                        escaparCSV(formatarNumero(item.valorCCO)),
+                        escaparCSV(item.statusCCO)
+                    );
+                }
+                
+                csvContent += row.join(';') + '\n';
+            });
+            
+            // Download com BOM UTF-8 para compatibilidade com Excel
+            const BOM = '\uFEFF';
+            const blob = new Blob([BOM + csvContent], { 
+                type: 'text/csv;charset=utf-8;' 
+            });
+
+            //criar prefixo do nome do arquivo, usando o parametro de busca
+            var prefixo = parametros.contratoCPP;
+            if (parametros.campo) {
+                prefixo += '_' + parametros.campo;
+            }
+            if (parametros.origemDoGasto) {
+                prefixo += '_' + parametros.origemDoGasto;
+            }
+            if (parametros.remessa) {
+                prefixo += '_' + parametros.remessa;
+            }
+            prefixo += '_';
+            
+
+
+            
+            
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            const tipoAnalise = isDetalhada ? 'detalhada' : 'simplificada';
+            const dataAtual = new Date().toISOString().split('T')[0];
+            link.setAttribute('download', `${prefixo}${tipoAnalise}_${dataAtual}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+            // Cleanup
+            URL.revokeObjectURL(url);
+        })
+        .catch(error => console.error('Erro ao exportar CSV:', error));
+}
+
+// Função para escapar caracteres especiais em CSV
+function escaparCSV(valor) {
+    if (valor === null || valor === undefined) {
+        return '';
+    }
+    
+    // Converter para string
+    let str = String(valor);
+    
+    // Se contém caracteres especiais, colocar entre aspas duplas
+    if (str.includes(';') || str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+        // Escapar aspas duplas duplicando-as
+        str = str.replace(/"/g, '""');
+        // Envolver em aspas duplas
+        str = '"' + str + '"';
+    }
+    
+    return str;
+}
+
+// Função para formatar números adequadamente para CSV
+function formatarNumero(numero) {
+    if (numero === null || numero === undefined || isNaN(numero)) {
+        return '0,00';
+    }
+    
+    return Number(numero).toFixed(2).replace('.', ',');
+}
+</script>
+{% endblock %}

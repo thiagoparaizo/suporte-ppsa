@@ -1,0 +1,682 @@
+<!-- templates/recalculo/resultado_recalculo.html -->
+{% extends "base.html" %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .valor-calculado {
+        border-bottom: 1px dotted #6c757d;
+        transition: background-color 0.2s ease;
+    }
+
+    .font-monospace {
+        font-family: 'Courier New', monospace;
+    }
+
+    .bg-secondary.bg-opacity-10 {
+        background-color: rgba(108, 117, 125, 0.1) !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="max-width: 1800px;">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">
+            <i class="fas fa-chart-line me-2"></i>
+            Resultado do Recálculo
+        </h1>
+        <div class="btn-group" role="group">
+            <button class="btn btn-success" id="btnSalvarTemporario">
+                <i class="fas fa-save me-1"></i>Salvar Temporário
+            </button>
+            <button class="btn btn-primary" id="btnExportarCSV">
+                <i class="fas fa-download me-1"></i>Exportar CSV
+            </button>
+            <button class="btn btn-info" id="btnVisualizarTimeline">
+                <i class="fas fa-history me-1"></i>Ver Timeline
+            </button>
+        </div>
+    </div>
+
+    <!-- Alert de Sucesso -->
+    <div class="alert alert-success d-flex align-items-center mb-4" role="alert">
+        <i class="fas fa-check-circle me-2"></i>
+        <div>
+            <strong>Recálculo executado com sucesso!</strong>
+            Analise os resultados abaixo antes de aplicar as alterações.
+        </div>
+    </div>
+
+    <!-- Informações do Recálculo -->
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Informações do Recálculo
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <strong>CCO ID:</strong><br>
+                            <code>{{ resultado.cco_original._id }}</code>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <strong>Tipo:</strong><br>
+                            <span class="badge bg-primary">{{ resultado.metadata_recalculo.tipo_recalculo }}</span>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <strong>Modo:</strong><br>
+                            <span class="badge bg-info">{{ resultado.metadata_recalculo.modo_recalculo }}</span>
+                        </div>
+                        
+                        <div class="col-md-3 mb-3">
+                            <strong>Contrato:</strong><br>
+                            {{ resultado.cco_original.contratoCpp }}
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <strong>Campo:</strong><br>
+                            {{ resultado.cco_original.campo }}
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <strong>Remessa:</strong><br>
+                            {{ resultado.cco_original.remessa }}
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <strong>Fase:</strong><br>
+                            {{ resultado.cco_original.faseRemessa }}
+                        </div>
+                    </div>
+                    
+                    {% if resultado.metadata_recalculo.tipo_recalculo == 'TRACK_PARTICIPATION' %}
+                    <hr>
+                    <div class="row">
+                        <div class="col-md-3 mb-2">
+                            <strong>TP Original:</strong><br>
+                            <span class="text-muted">{{ "%.3f"|format(resultado.metadata_recalculo.tp_original) }}%</span>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <strong>TP Correção:</strong><br>
+                            <span class="text-primary">{{ "%.3f"|format(resultado.metadata_recalculo.tp_correcao) }}%</span>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <strong>Fator de Correção:</strong><br>
+                            <span class="text-info">{{ "%.15f"|format(resultado.metadata_recalculo.fator_correcao) }}</span>
+                        </div>
+                        <div class="col-md-3 mb-2">
+                            <strong>Data/Hora:</strong><br>
+                            <span class="text-muted">{{ resultado.metadata_recalculo.data_recalculo.strftime('%d/%m/%Y %H:%M') }}</span>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if resultado.metadata_recalculo.observacoes %}
+                    <hr>
+                    <div class="row">
+                        <div class="col-12">
+                            <strong>Observações:</strong><br>
+                            <div class="bg-light p-2 rounded">{{ resultado.metadata_recalculo.observacoes }}</div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-pie me-2"></i>
+                        Resumo das Alterações
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="text-center mb-3">
+                        <div class="display-6 text-primary">{{ resultado.resumo.total_campos_alterados }}</div>
+                        <small class="text-muted">Campos Alterados</small>
+                    </div>
+                    
+                    <div class="text-center mb-3">
+                        <div class="h4 text-warning">{{ "%.15f"|format(resultado.resumo.maior_variacao_percentual) }}%</div>
+                        <small class="text-muted">Maior Variação</small>
+                    </div>
+                    
+                    <hr>
+                    
+                    <!-- Status dos valores principais -->
+                    {% for campo, dados in resultado.comparativo.items() %}
+                    {% if campo in ['valorReconhecido', 'valorReconhecidoComOH', 'overHeadTotal'] %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <small>{{ campo.replace('valor', '').replace('Reconhecido', 'Rec.').replace('ComOH', '+OH') }}:</small>
+                        {% if dados.diferenca != 0 %}
+                        <span class="badge bg-warning">{{ "%.1f"|format(dados.percentual_variacao) }}%</span>
+                        {% else %}
+                        <span class="badge bg-secondary">0%</span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detalhes dos Cálculos -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-calculator me-2"></i>
+                        Detalhes dos Cálculos
+                        <button class="btn btn-sm btn-outline-info float-end" type="button" data-bs-toggle="collapse" 
+                                data-bs-target="#collapseCalculos" aria-expanded="false">
+                            <i class="fas fa-eye me-1"></i>Mostrar Fórmulas
+                        </button>
+                    </h5>
+                </div>
+                <div class="collapse" id="collapseCalculos">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-lg-6 mb-3">
+                                <div class="bg-light p-3 rounded">
+                                    <h6 class="text-primary">
+                                        <i class="fas fa-calculator me-1"></i>
+                                        Fator de Correção
+                                    </h6>
+                                    <div class="font-monospace small">
+                                        <strong>Fórmula:</strong> TP Novo ÷ TP Original<br>
+                                        <strong>Cálculo:</strong> {{ "%.6f"|format(resultado.metadata_recalculo.tp_correcao) }} ÷ {{ "%.6f"|format(resultado.metadata_recalculo.tp_original) }}<br>
+                                        <strong>Resultado:</strong> <span class="text-success">{{ "%.15f"|format(resultado.metadata_recalculo.fator_correcao) }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-lg-6 mb-3">
+                                <div class="bg-light p-3 rounded">
+                                    <h6 class="text-primary">
+                                        <i class="fas fa-percentage me-1"></i>
+                                        Variação Percentual
+                                    </h6>
+                                    <div class="font-monospace small">
+                                        <strong>Fórmula:</strong> ((TP Novo - TP Original) ÷ TP Original) × 100<br>
+                                        <strong>Cálculo:</strong> (({{ "%.6f"|format(resultado.metadata_recalculo.tp_correcao) }} - {{ "%.6f"|format(resultado.metadata_recalculo.tp_original) }}) ÷ {{ "%.6f"|format(resultado.metadata_recalculo.tp_original) }}) × 100<br>
+                                        <strong>Resultado:</strong> <span class="text-info">{{ "%.10f"|format(((resultado.metadata_recalculo.tp_correcao - resultado.metadata_recalculo.tp_original) / resultado.metadata_recalculo.tp_original) * 100) }}%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Exemplos de cálculos por campo -->
+                        <div class="row">
+                            
+
+                            {% for campo, dados in resultado.comparativo.items() %}
+                            {% if dados.diferenca != 0 and campo in ['correcao_valorReconhecido'] %}
+                            <div class="col-lg-6 mb-3">
+                                <div class="bg-secondary bg-opacity-10 p-3 rounded">
+                                    <h6 class="text-dark">
+                                        <i class="fas fa-chart-line me-1"></i>
+                                        {{ campo.replace('correcao_', '').replace('valor', '').replace('Reconhecido', 'Reconhecido').replace('Total', '') }}
+                                    </h6>
+                                    <div class="font-monospace small">
+                                        <strong>Valor Original:</strong> R$ {{ "{:,.6f}".format(dados.valor_original).replace(",", "X").replace(".", ",").replace("X", ".") }}<br>
+                                        <strong>Fórmula:</strong> Valor Original × Fator Correção<br>
+                                        <strong>Cálculo:</strong> {{ "{:,.6f}".format(dados.valor_original).replace(",", "X").replace(".", ",").replace("X", ".") }} × {{ "%.15f"|format(resultado.metadata_recalculo.fator_correcao) }}<br>
+                                        <strong>Resultado:</strong> <span class="text-success">R$ {{ "{:,.6f}".format(dados.valor_recalculado).replace(",", "X").replace(".", ",").replace("X", ".") }}</span><br>
+                                        <strong>Diferença:</strong> <span class="{% if dados.diferenca > 0 %}text-success{% else %}text-danger{% endif %}">R$ {{ "{:,.6f}".format(dados.diferenca).replace(",", "X").replace(".", ",").replace("X", ".") }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% endfor %}
+
+                            <div class="col-12 mb-3">
+                                <div class="bg-primary bg-opacity-10 p-3 rounded">
+                                    <h6 class="text-primary">
+                                        <i class="fas fa-coins me-1"></i>
+                                        Cálculo do valorReconhecidoComOH (Regra Complexa)
+                                    </h6>
+                                    <div class="font-monospace small">
+                                        {% if resultado.metadata_recalculo.modo_recalculo == 'CORRECAO_MONETARIA' %}
+                                            {% set flag_recuperado = resultado.cco_original.flgRecuperado %}
+                                            {% if flag_recuperado == True and resultado.comparativo['correcao_flgRecuperado'].valor_recalculado == False %}
+                                                <div class="alert alert-warning p-2">
+                                                    <strong>CCO Original Recuperada (flgRecuperado = true), mas passou a ser Não Recuperada (flgRecuperado = false)</strong><br>
+                                                    <em>Regra especial: 
+                                                        <ul>
+                                                            <li>verificar o qual era o valorReconhecidoComOH antes da recuperação.</li>
+                                                            <li>aplicar a correção com o novo tp, nesse valor.</li>
+                                                            <li>calcular a diferença entre o valorReconhecidoComOH antes da recuperação e o novo valorReconhecidoComOH.</li>
+                                                            <li>Essa diferença deverá ser positiva, e será o novo saldo da cco, tornando-a novamente disponpivel para recuperação.</li>
+                                                            <li>Da mesma forma, esse novo valor ReconhecidoComOH recalculado, subtraído o último valor de recuperação, deverá ser igual ao saldo da cco</li> 
+                                                        </ul>
+                                                    </em>
+                                                </div>
+                                                <strong>1. Obter último valor do 'Valor Reconhecido Com OH' maior que 0 (zero), antes da última recuperação:</strong><br>
+                                                Último 'Valor Reconhecido Com OH' = <span class="text-info">{{ "{:,.6f}".format(resultado.ultimo_valor_reconhecido_com_oh).replace(",", "X").replace(".", ",").replace("X", ".") }}</span><br><br>
+                                                
+                                                <strong>2. Aplicar fator de correção:</strong><br>
+                                                {{ "{:,.6f}".format(resultado.ultimo_valor_reconhecido_com_oh).replace(",", "X").replace(".", ",").replace("X", ".") }} × {{ "%.15f"|format(resultado.metadata_recalculo.fator_correcao) }}<br>
+                                                = <span class="text-warning">{{ "{:,.6f}".format(resultado.ultimo_valor_reconhecido_com_oh * resultado.metadata_recalculo.fator_correcao).replace(",", "X").replace(".", ",").replace("X", ".") }}</span><br><br>
+                                                
+                                                <strong>3. Calcular diferença: 'Valor Reconhecido Com OH' (antes da recuperação) -  'Valor Reconhecido Com OH' (recalculado):</strong><br>
+                                                {{ "{:,.6f}".format(resultado.ultimo_valor_reconhecido_com_oh * resultado.metadata_recalculo.fator_correcao).replace(",", "X").replace(".", ",").replace("X", ".") }} - {{ "{:,.6f}".format(resultado.comparativo['correcao_valorRecuperadoTotal'].valor_original).replace(",", "X").replace(".", ",").replace("X", ".") }}<br>
+                                                = <span class="text-success">{{ "{:,.6f}".format((resultado.ultimo_valor_reconhecido_com_oh * resultado.metadata_recalculo.fator_correcao) - resultado.comparativo['correcao_valorRecuperadoTotal'].valor_original).replace(",", "X").replace(".", ",").replace("X", ".") }}</span><br><br>
+
+                                                <strong>4. Validação adicional: ('Valor Reconhecido Com OH' antes da recuperação * 'fator de correção') - útimo 'valor recuperação':</strong><br>
+                                                ({{ "{:,.6f}".format(resultado.ultimo_valor_reconhecido_com_oh).replace(",", "X").replace(".", ",").replace("X", ".") }} * {{ "%.15f"|format(resultado.metadata_recalculo.fator_correcao) }}) - {{ "{:,.6f}".format(resultado.comparativo['correcao_valorRecuperado'].valor_original).replace(",", "X").replace(".", ",").replace("X", ".") }}<br>
+                                                = <span class="text-success">{{ "{:,.6f}".format((resultado.ultimo_valor_reconhecido_com_oh * resultado.metadata_recalculo.fator_correcao) - resultado.comparativo['correcao_valorRecuperado'].valor_original).replace(",", "X").replace(".", ",").replace("X", ".") }}</span><br><br>
+                                                
+                                            {% else %}
+                                                <div class="alert alert-success p-2 mb-2">
+                                                    <strong>CCO Não Recuperada (flgRecuperado = false)</strong><br>
+                                                    <em>Regra padrão: 'Valor Reconhecido Com OH' = diferença calculada</em>
+                                                </div>
+                                                <strong>1. Valor original da CCO:</strong><br>
+                                                'Valor Reconhecido Com OH' = <span class="text-info">{{ "{:,.6f}".format(resultado.comparativo['correcao_valorReconhecidoComOH'].valor_original).replace(",", "X").replace(".", ",").replace("X", ".") }}</span><br><br>
+                                                
+                                                <strong>2. Aplicar fator de correção:</strong><br>
+                                                {{ "{:,.6f}".format(resultado.comparativo['correcao_valorReconhecidoComOH'].valor_original).replace(",", "X").replace(".", ",").replace("X", ".") }} × {{ "%.15f"|format(resultado.metadata_recalculo.fator_correcao) }}<br>
+                                                = <span class="text-warning">{{ "{:,.6f}".format(resultado.comparativo['correcao_valorReconhecidoComOH'].valor_original * resultado.metadata_recalculo.fator_correcao).replace(",", "X").replace(".", ",").replace("X", ".") }}</span><br><br>
+                                                
+                                                <strong>3. Diferença (valor da correção):</strong><br>
+                                                {{ "{:,.6f}".format(resultado.comparativo['correcao_valorReconhecidoComOH'].valor_original * resultado.metadata_recalculo.fator_correcao).replace(",", "X").replace(".", ",").replace("X", ".") }} - {{ "{:,.6f}".format(resultado.comparativo['correcao_valorReconhecidoComOH'].valor_original).replace(",", "X").replace(".", ",").replace("X", ".") }}<br>
+                                                = <span class="text-success">{{ "{:,.6f}".format(resultado.comparativo['correcao_valorReconhecidoComOH'].valor_recalculado).replace(",", "X").replace(".", ",").replace("X", ".") }}</span>
+                                            {% endif %}
+                                        {% else %}
+                                            <div class="alert alert-primary p-2 mb-2">
+                                                <strong>Modo RECÁLCULO_COMPLETO</strong><br>
+                                                <em>Todos os valores da CCO são recalculados</em>
+                                            </div>
+                                            <strong>Fórmula:</strong> valorReconhecido + overHeadTotal<br>
+                                            <strong>Cálculo:</strong> {{ "{:,.6f}".format(resultado.comparativo['valorReconhecido'].valor_recalculado).replace(",", "X").replace(".", ",").replace("X", ".") }} + {{ "{:,.6f}".format(resultado.comparativo['overHeadTotal'].valor_recalculado).replace(",", "X").replace(".", ",").replace("X", ".") }}<br>
+                                            <strong>Resultado:</strong> <span class="text-success">{{ "{:,.6f}".format(resultado.comparativo['valorReconhecidoComOH'].valor_recalculado).replace(",", "X").replace(".", ",").replace("X", ".") }}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Mostrar mudança de flag se aplicável -->
+                            {% if 'correcao_flgRecuperado' in resultado.comparativo %}
+                            <div class="col-12 mb-3">
+                                <div class="bg-warning bg-opacity-20 p-3 rounded">
+                                    <h6 class="text-warning">
+                                        <i class="fas fa-flag me-1"></i>
+                                        Alteração de Status de Recuperação
+                                    </h6>
+                                    <div class="small">
+                                        <strong>Regra de Negócio:</strong> Quando uma CCO recuperada recebe nova correção positiva,<br>
+                                        ela deve voltar ao status "Recuperável" (flgRecuperado = false)<br><br>
+                                        <strong>Antes:</strong> <span class="badge bg-success">RECUPERADA</span><br>
+                                        <strong>Depois:</strong> <span class="badge bg-primary">RECUPERÁVEL</span><br><br>
+                                        <em>Isso permite que o novo valor seja recuperado futuramente.</em>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Comparativo de Valores -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-balance-scale me-2"></i>
+                Comparativo de Valores
+                <span class="badge bg-info ms-2">{{ resultado.resumo.modo_comparacao }}</span>
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-striped mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Campo</th>
+                            <th>Origem</th>
+                            <th class="text-end">Valor Original (R$)</th>
+                            <th class="text-end">Valor Recalculado (R$)</th>
+                            <th class="text-end">Diferença (R$)</th>
+                            <th class="text-center">Variação (%)</th>
+                            <th class="text-center">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for campo, dados in resultado.comparativo.items() %}
+                        {% if campo not in ['correcao_diferencaValor'] %}  
+                        <tr>
+                            <td>
+                                <strong>{{ 
+                                    campo.replace('correcao_', '').replace('cco_', '')
+                                    .replace('valor', '').replace('Reconhecido', 'Reconhecido')
+                                    .replace('ComOH', ' c/ Overhead')
+                                    .replace('Lancamento', 'Lançamento').replace('quantidade', 'Quantidade ')
+                                    .replace('Nao', 'Não ').replace('Passivel', 'Passível')
+                                    .replace('Recuperacao', 'Recuperação').replace('Exploracao', 'Exploração')
+                                    .replace('Producao', 'Produção').replace('diferenca', 'Diferença')
+                                }}</strong>
+                            </td>
+                            <td>
+                                <span class="badge {% if dados.fonte == 'Correção Monetária' and campo != 'correcao_flgRecuperado' %}bg-warning{% elif dados.fonte == 'CCO Principal' or campo == 'correcao_flgRecuperado'  %}bg-primary{% else %}bg-secondary{% endif %}">
+                                    {{ dados.fonte if campo != 'correcao_flgRecuperado' else 'CCO Principal' }}
+                                </span>
+                            </td>
+                            <td class="text-end text-muted position-relative">
+                                {% if campo in ['correcao_flgRecuperado'] %}
+                                    <span class="text-muted">{{ 'SIM' if dados.valor_original else 'NÃO' }}</span>
+                                {% elif 'quantidade' in campo %}
+                                    <span class="text-muted">{{ dados.valor_original }}</span>
+                                {% elif dados.valor_original != 0 %}
+                                    <span class="valor-calculado" 
+                                        data-bs-toggle="tooltip" 
+                                        data-bs-placement="top" 
+                                        data-bs-html="true"
+                                        title="<strong>Valor Original</strong><br>Sem aplicação do fator de correção<br><small class='text-muted'>Base para o cálculo</small><br><br><strong>Valor Orignial sem TP Original</strong><br>{{ '{:,.6f}'.format(dados.valor_original).replace(',', 'X').replace('.', ',').replace('X', '.') }} / {{ '%.15f'|format(resultado.metadata_recalculo.tp_original) }}<br><strong>= {{ '{:,.6f}'.format(dados.valor_original / resultado.metadata_recalculo.tp_original).replace(',', 'X').replace('.', ',').replace('X', '.') }}</strong>">
+                                        {{  "{:,.6f}".format(dados.valor_original).replace(",", "X").replace(".", ",").replace("X", ".") }}
+                                    </span>
+                                {% else %}
+                                    <span class="text-muted">0,00</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end text-primary fw-bold position-relative">
+                                {% if campo in ['correcao_flgRecuperado'] %}
+                                    <span class="text-muted">{{ 'SIM' if dados.valor_recalculado else 'NÃO' }}</span>
+                                {% elif 'quantidade' in campo %}
+                                    <span class="text-muted">{{ dados.valor_recalculado }}</span>
+                                {% elif dados.valor_recalculado != 0 %}
+                                    {% set valor_sem_tp = (dados.valor_original / resultado.metadata_recalculo.tp_original) if resultado.metadata_recalculo.tp_original != 0 else 0 %}
+                                    {% set valor_com_novo_tp = valor_sem_tp * resultado.metadata_recalculo.tp_correcao if valor_sem_tp != 0 else 0 %}
+                                    <span class="valor-calculado" 
+                                        data-bs-toggle="tooltip" 
+                                        data-bs-placement="top" 
+                                        data-bs-html="true"
+                                        title="<strong>Cálculo Aplicado</strong><br/>{{ '{:,.6f}'.format(dados.valor_original).replace(',', 'X').replace('.', ',').replace('X', '.') }} × {{ '%.15f'|format(resultado.metadata_recalculo.fator_correcao) }}<br/><strong>= {{ '{:,.6f}'.format(dados.valor_recalculado).replace(',', 'X').replace('.', ',').replace('X', '.') }}</strong><br/><br/><strong>Cálculo Com Valor Original</strong><br/>{{ '{:,.6f}'.format(valor_sem_tp).replace(',', 'X').replace('.', ',').replace('X', '.') }} × {{ '%.6f'|format(resultado.metadata_recalculo.tp_correcao) }}<br/><strong>= {{ '{:,.6f}'.format(valor_com_novo_tp).replace(',', 'X').replace('.', ',').replace('X', '.') }}</strong>">
+                                        {{ "{:,.6f}".format(dados.valor_recalculado).replace(",", "X").replace(".", ",").replace("X", ".") }}
+                                    </span>
+                                {% else %}
+                                    <span class="text-muted">0,00</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end {% if dados.diferenca > 0 %}text-success{% elif dados.diferenca < 0 %}text-danger{% else %}text-muted{% endif %} position-relative">
+                                {% if dados.valor_recalculado == true or dados.valor_recalculado == false %}
+                                    <span class="text-muted">-</span>
+                                {% elif dados.diferenca != 0 %}
+                                    <span class="valor-calculado" 
+                                        data-bs-toggle="tooltip" 
+                                        data-bs-placement="top" 
+                                        data-bs-html="true"
+                                        title="<strong>Diferença Calculada</strong><br>{{ '{:,.6f}'.format(dados.valor_recalculado).replace(',', 'X').replace('.', ',').replace('X', '.') }} - {{ '{:,.6f}'.format(dados.valor_original).replace(',', 'X').replace('.', ',').replace('X', '.') }}<br><strong>= {% if dados.diferenca > 0 %}+{% endif %}{{ '{:,.6f}'.format(dados.diferenca).replace(',', 'X').replace('.', ',').replace('X', '.') }}</strong>">
+                                        {% if dados.diferenca > 0 %}+{% endif %}{{ "{:,.6f}".format(dados.diferenca).replace(",", "X").replace(".", ",").replace("X", ".") }}
+                                    </span>
+                                {% else %}
+                                    <span class="text-muted">0,00</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if campo in ['correcao_flgRecuperado'] %}
+                                    <span class="text-muted">-</span>
+                                
+                                {% elif dados.diferenca != 0 %}
+                                <span class="badge {% if dados.percentual_variacao >= 0 %}bg-success{% else %}bg-danger{% endif %}">
+                                    {% if dados.percentual_variacao > 0 %}+{% endif %}{{ "%.10f"|format(dados.percentual_variacao) }}%
+                                </span>
+                                {% else %}
+                                <span class="badge bg-secondary">0%</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if dados.diferenca != 0 and dados.valor_original != dados.valor_recalculado  %}
+                                <i class="fas fa-edit text-warning" title="Alterado"></i>
+                                {% else %}
+                                <i class="fas fa-check text-success" title="Inalterado"></i>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráfico Comparativo -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-chart-bar me-2"></i>
+                Visualização Comparativa
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="chart-container" style="height: 400px;">
+                <canvas id="graficoComparativo"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ações Finais -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-cogs me-2"></i>
+                Ações Disponíveis
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-lg-8">
+                    <p class="text-muted mb-3">
+                        Escolha uma das opções abaixo para prosseguir com o resultado do recálculo:
+                    </p>
+                    
+                    <div class="d-flex flex-wrap gap-2">
+                        <button class="btn btn-success" id="btnSalvarTemporario2">
+                            <i class="fas fa-save me-1"></i>Salvar como Temporário
+                        </button>
+                        <button class="btn btn-warning" id="btnAplicarDefinitivo" disabled>
+                            <i class="fas fa-check me-1"></i>Aplicar Definitivamente
+                        </button>
+                        <button class="btn btn-primary" id="btnExportarCSV2">
+                            <i class="fas fa-download me-1"></i>Exportar Relatório CSV
+                        </button>
+                        <button class="btn btn-info" id="btnNovoRecalculo">
+                            <i class="fas fa-redo me-1"></i>Novo Recálculo
+                        </button>
+                        <button class="btn btn-secondary" onclick="history.back()">
+                            <i class="fas fa-arrow-left me-1"></i>Voltar
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="col-lg-4">
+                    <div class="alert alert-warning mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Importante:</strong> Salve o resultado como temporário antes de aplicar definitivamente na base de dados.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmação -->
+<div class="modal fade" id="modalConfirmacao" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Ação</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="textoConfirmacao"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnConfirmarAcao">Confirmar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const cacheKey = '{{ cache_key }}';
+    const ccoId = '{{ resultado.cco_original._id }}';
+    let idTemporario = null;
+    
+    const modalConfirmacao = new bootstrap.Modal(document.getElementById('modalConfirmacao'));
+    
+    // Configurar gráfico comparativo
+    configurarGraficoComparativo();
+    
+    // Event listeners para botões
+    document.getElementById('btnSalvarTemporario').addEventListener('click', salvarTemporario);
+    document.getElementById('btnSalvarTemporario2').addEventListener('click', salvarTemporario);
+    document.getElementById('btnExportarCSV').addEventListener('click', exportarCSV);
+    document.getElementById('btnExportarCSV2').addEventListener('click', exportarCSV);
+    document.getElementById('btnVisualizarTimeline').addEventListener('click', () => {
+        window.open(`/cco-timeline/${ccoId}`, '_blank');
+    });
+    document.getElementById('btnNovoRecalculo').addEventListener('click', () => {
+        window.location.href = `/recalculo/executar/${ccoId}`;
+    });
+    
+    function configurarGraficoComparativo() {
+        const ctx = document.getElementById('graficoComparativo').getContext('2d');
+        
+        const comparativo = {{ resultado.comparativo | tojson }};
+        const campos = Object.keys(comparativo);
+        const valoresOriginais = campos.map(campo => comparativo[campo].valor_original);
+        const valoresRecalculados = campos.map(campo => comparativo[campo].valor_recalculado);
+        
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: campos.map(c => c.replace('valor', '').replace('Reconhecido', 'Rec.').replace('ComOH', '+OH')),
+                datasets: [{
+                    label: 'Valor Original',
+                    data: valoresOriginais,
+                    backgroundColor: 'rgba(108, 117, 125, 0.7)',
+                    borderColor: 'rgba(108, 117, 125, 1)',
+                    borderWidth: 1
+                }, {
+                    label: 'Valor Recalculado',
+                    data: valoresRecalculados,
+                    backgroundColor: 'rgba(13, 110, 253, 0.7)',
+                    borderColor: 'rgba(13, 110, 253, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return 'R$ ' + value.toLocaleString('pt-BR');
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.dataset.label + ': R$ ' + context.parsed.y.toLocaleString('pt-BR', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    function salvarTemporario() {
+        fetch('/recalculo/api/salvar-temporario', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ cache_key: cacheKey })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                idTemporario = data.id_temporario;
+                document.getElementById('btnAplicarDefinitivo').disabled = false;
+                mostrarSucesso('Resultado salvo temporariamente com sucesso!');
+            } else {
+                mostrarErro('Erro ao salvar temporário: ' + data.error);
+            }
+        })
+        .catch(error => {
+            mostrarErro('Erro na requisição: ' + error.message);
+        });
+    }
+    
+    function exportarCSV() {
+        fetch(`/recalculo/api/exportar-csv/${cacheKey}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Criar download do CSV
+                const blob = new Blob([data.csv_content], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = data.filename;
+                link.click();
+                mostrarSucesso('Relatório CSV exportado com sucesso!');
+            } else {
+                mostrarErro('Erro ao exportar CSV: ' + data.error);
+            }
+        })
+        .catch(error => {
+            mostrarErro('Erro na requisição: ' + error.message);
+        });
+    }
+    
+    function mostrarSucesso(mensagem) {
+        // TODO: Implementar toast mais elegante
+        alert(mensagem);
+    }
+    
+    function mostrarErro(mensagem) {
+        // TODO: Implementar toast mais elegante
+        alert(mensagem);
+    }
+
+    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+    const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
+
+    // Adicionar efeito hover nas células com cálculos
+    document.querySelectorAll('.valor-calculado').forEach(el => {
+        el.style.cursor = 'help';
+        el.addEventListener('mouseenter', function() {
+            this.style.backgroundColor = 'rgba(13, 110, 253, 0.1)';
+        });
+        el.addEventListener('mouseleave', function() {
+            this.style.backgroundColor = 'transparent';
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,332 @@
+<!-- templates/recalculo/executar_recalculo.html -->
+{% extends "base.html" %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="max-width: 1200px;">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">
+            <i class="fas fa-calculator me-2"></i>
+            Executar Recálculo de CCO
+        </h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('portal_ui.index') }}">Portal</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('recalculo_ui.index_recalculo') }}">Recálculo</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('recalculo_ui.pesquisar_ccos') }}">Pesquisar</a></li>
+                <li class="breadcrumb-item active">Executar</li>
+            </ol>
+        </nav>
+    </div>
+
+    <!-- Informações da CCO -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-info-circle me-2"></i>
+                CCO Selecionada
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row" id="infoCco">
+                <div class="col-12 text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Carregando informações da CCO...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulário de Recálculo -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-cogs me-2"></i>
+                Parâmetros de Recálculo
+            </h5>
+        </div>
+        <div class="card-body">
+            <form id="formRecalculo">
+                <input type="hidden" id="ccoId" name="cco_id" value="{{ cco_id }}">
+                
+                <div class="row">
+                    <div class="col-lg-6 mb-4">
+                        <label for="tipoRecalculo" class="form-label">Tipo de Recálculo *</label>
+                        <select class="form-select" id="tipoRecalculo" name="tipo_recalculo" required>
+                            <option value="">Selecione o tipo</option>
+                            <option value="TRACK_PARTICIPATION">Track Participation (TP)</option>
+                            <option value="AJUSTE_IPCA" disabled>Ajuste IPCA (Em desenvolvimento)</option>
+                            <option value="AJUSTE_IGPM" disabled>Ajuste IGPM (Em desenvolvimento)</option>
+                            <option value="AJUSTE_MANUAL" disabled>Ajuste Manual (Em desenvolvimento)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-lg-6 mb-4">
+                        <label for="modoRecalculo" class="form-label">Modo de Recálculo *</label>
+                        <select class="form-select" id="modoRecalculo" name="modo_recalculo" required>
+                            <option value="">Selecione o modo</option>
+                            <option value="COMPLETO" disabled>Recálculo Completo</option>
+                            <option value="CORRECAO_MONETARIA">Correção Monetária</option>
+                        </select>
+                        <div class="form-text">
+                            <strong>Completo:</strong> Recalcula todos os valores da CCO<br>
+                            <strong>Correção Monetária:</strong> Adiciona nova correção RETIFICACAO
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Parâmetros específicos para Track Participation -->
+                <div id="parametrosTP" style="display: none;">
+                    <div class="row">
+                        <div class="col-lg-6 mb-3">
+                            <label for="tpOriginal" class="form-label">TP Original * (%)</label>
+                            <input type="number" class="form-control" id="tpOriginal" name="tp_original" 
+                                   step="0.001" min="0.001" max="100" placeholder="Ex: 60.407">
+                            <div class="form-text">Track Participation original aplicado na remessa</div>
+                        </div>
+                        
+                        <div class="col-lg-6 mb-3">
+                            <label for="tpCorrecao" class="form-label">TP Correção * (%)</label>
+                            <input type="number" class="form-control" id="tpCorrecao" name="tp_correcao" 
+                                   step="0.001" min="0.001" max="100" placeholder="Ex: 60.408">
+                            <div class="form-text">Novo Track Participation a ser aplicado</div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-lg-6 mb-3">
+                            <label class="form-label">Fator de Correção</label>
+                            <input type="text" class="form-control" id="fatorCorrecao" readonly>
+                            <div class="form-text">Calculado automaticamente (TP Correção / TP Original)</div>
+                        </div>
+                        
+                        <div class="col-lg-6 mb-3">
+                            <label class="form-label">Variação Percentual</label>
+                            <input type="text" class="form-control" id="variacaoPercentual" readonly>
+                            <div class="form-text">Percentual de variação entre os TPs</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Observações -->
+                <div class="row">
+                    <div class="col-12 mb-4">
+                        <label for="observacoes" class="form-label">Observações</label>
+                        <textarea class="form-control" id="observacoes" name="observacoes" rows="3" 
+                                  placeholder="Descreva o motivo do recálculo ou observações relevantes..."></textarea>
+                    </div>
+                </div>
+
+                <!-- Botões de Ação -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary" id="btnExecutarRecalculo">
+                                <i class="fas fa-play me-1"></i>Executar Recálculo
+                            </button>
+                            <button type="button" class="btn btn-secondary" onclick="history.back()">
+                                <i class="fas fa-arrow-left me-1"></i>Voltar
+                            </button>
+                            <button type="button" class="btn btn-info" id="btnVisualizarCco">
+                                <i class="fas fa-eye me-1"></i>Visualizar CCO
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Loading Modal -->
+    <div class="modal fade" id="modalProcessando" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-body text-center py-4">
+                    <div class="spinner-border text-primary mb-3" role="status">
+                        <span class="visually-hidden">Processando...</span>
+                    </div>
+                    <h5>Executando Recálculo</h5>
+                    <p class="text-muted mb-0">Aguarde enquanto processamos os cálculos...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ccoId = document.getElementById('ccoId').value;
+    const formRecalculo = document.getElementById('formRecalculo');
+    const tipoRecalculo = document.getElementById('tipoRecalculo');
+    const parametrosTP = document.getElementById('parametrosTP');
+    const tpOriginal = document.getElementById('tpOriginal');
+    const tpCorrecao = document.getElementById('tpCorrecao');
+    const fatorCorrecao = document.getElementById('fatorCorrecao');
+    const variacaoPercentual = document.getElementById('variacaoPercentual');
+    const modalProcessando = new bootstrap.Modal(document.getElementById('modalProcessando'));
+
+    // Carregar informações da CCO
+    carregarInfoCco();
+
+    // Mostrar/ocultar parâmetros baseado no tipo de recálculo
+    tipoRecalculo.addEventListener('change', function() {
+        if (this.value === 'TRACK_PARTICIPATION') {
+            parametrosTP.style.display = 'block';
+            tpOriginal.required = true;
+            tpCorrecao.required = true;
+        } else {
+            parametrosTP.style.display = 'none';
+            tpOriginal.required = false;
+            tpCorrecao.required = false;
+        }
+    });
+
+    // Calcular fator de correção automaticamente
+    function calcularFator() {
+        const tp1 = parseFloat(tpOriginal.value);
+        const tp2 = parseFloat(tpCorrecao.value);
+        
+        if (tp1 && tp2 && tp1 > 0) {
+            const fator = tp2 / tp1;
+            const variacao = ((tp2 - tp1) / tp1) * 100;
+            
+            fatorCorrecao.value = fator.toFixed(6);
+            variacaoPercentual.value = variacao.toFixed(3) + '%';
+        } else {
+            fatorCorrecao.value = '';
+            variacaoPercentual.value = '';
+        }
+    }
+
+    tpOriginal.addEventListener('input', calcularFator);
+    tpCorrecao.addEventListener('input', calcularFator);
+
+    // Submissão do formulário
+    formRecalculo.addEventListener('submit', function(e) {
+        e.preventDefault();
+        executarRecalculo();
+    });
+
+    // Botão visualizar CCO
+    document.getElementById('btnVisualizarCco').addEventListener('click', function() {
+        window.open(`/cco-timeline/${ccoId}`, '_blank');
+    });
+
+    function carregarInfoCco() {
+        fetch('/recalculo/api/pesquisar-ccos', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({id: ccoId})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.resultados.length > 0) {
+                exibirInfoCco(data.resultados[0]);
+            } else {
+                mostrarErro('CCO não encontrada');
+            }
+        })
+        .catch(error => {
+            mostrarErro('Erro ao carregar informações da CCO: ' + error.message);
+        });
+    }
+
+    function exibirInfoCco(cco) {
+        document.getElementById('infoCco').innerHTML = `
+            <div class="col-lg-3 col-md-6 mb-2">
+                <strong>Contrato:</strong><br>
+                <span class="text-primary">${cco.contratoCpp}</span>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-2">
+                <strong>Campo:</strong><br>
+                <span class="text-primary">${cco.campo}</span>
+            </div>
+            <div class="col-lg-2 col-md-4 mb-2">
+                <strong>Remessa:</strong><br>
+                <span class="badge bg-secondary">${cco.remessa}</span>
+            </div>
+            <div class="col-lg-2 col-md-4 mb-2">
+                <strong>Fase:</strong><br>
+                <span class="badge bg-info">${cco.faseRemessa}</span>
+            </div>
+            <div class="col-lg-2 col-md-4 mb-2">
+                <strong>Exercício/Período:</strong><br>
+                <span class="text-muted">${cco.exercicio}/${cco.periodo}</span>
+            </div>
+            <div class="col-lg-4 col-md-6 mb-2">
+                <strong>Valor Reconhecido:</strong><br>
+                <span class="text-success fs-5">R$ ${formatarMoeda(cco.valorReconhecidoComOH)}</span>
+            </div>
+            <div class="col-lg-4 col-md-6 mb-2">
+                <strong>Overhead Total:</strong><br>
+                <span class="text-info">R$ ${formatarMoeda(cco.overHeadTotal)}</span>
+            </div>
+            <div class="col-lg-4 col-md-12 mb-2">
+                <strong>Status:</strong><br>
+                ${cco.flgRecuperado ? '<span class="badge bg-success">Recuperado</span>' : '<span class="badge bg-warning">Não Recuperado</span>'}
+            </div>
+        `;
+    }
+
+    function executarRecalculo() {
+        // Validar formulário
+        if (!formRecalculo.checkValidity()) {
+            formRecalculo.reportValidity();
+            return;
+        }
+
+        // Mostrar modal de processamento
+        modalProcessando.show();
+
+        // Coletar dados do formulário
+        const formData = new FormData(formRecalculo);
+        const dados = {};
+        for (let [key, value] of formData.entries()) {
+            dados[key] = value;
+        }
+
+        // Fazer requisição
+        fetch('/recalculo/api/executar-recalculo', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(dados)
+        })
+        .then(response => response.json())
+        .then(data => {
+            modalProcessando.hide();
+            
+            if (data.success) {
+                // Redirecionar para página de resultado
+                window.location.href = `/recalculo/resultado/${data.cache_key}`;
+            } else {
+                mostrarErro('Erro no recálculo: ' + data.error);
+            }
+        })
+        .catch(error => {
+            modalProcessando.hide();
+            mostrarErro('Erro na requisição: ' + error.message);
+        });
+    }
+
+    function formatarMoeda(valor) {
+        return new Intl.NumberFormat('pt-BR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(valor);
+    }
+
+    function mostrarErro(mensagem) {
+        alert(mensagem); // TODO: Implementar toast/modal mais elegante
+    }
+});
+</script>
+{% endblock %}

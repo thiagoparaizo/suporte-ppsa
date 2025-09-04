@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block title %}{{ erro }}{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+    <div class="alert alert-danger">
+        <h4><i class="fas fa-exclamation-triangle me-2"></i>{{ erro }}</h4>
+        <p>{{ mensagem }}</p>
+        <button class="btn btn-secondary" onclick="window.close()">Fechar</button>
+    </div>
+</div>
+{% endblock %}

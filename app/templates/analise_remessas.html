@@ -1,0 +1,1557 @@
+{% extends "base.html" %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.analise-container {
+    background: #f8f9fa;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 30px;
+    border: 1px solid #dee2e6;
+}
+
+.opcoes-analise {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    border-left: 4px solid #007bff;
+}
+
+.filtros-section {
+    background: white;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    border-left: 4px solid #28a745;
+}
+
+.resultados-container {
+    background: white;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.upload-area {
+    border: 2px dashed #dee2e6;
+    border-radius: 10px;
+    padding: 40px;
+    text-align: center;
+    margin: 20px 0;
+    transition: all 0.3s ease;
+    background: white;
+}
+
+.upload-area:hover {
+    border-color: var(--bs-primary);
+    background-color: var(--bs-primary-subtle);
+}
+
+.upload-area.drag-over {
+    border-color: var(--bs-success);
+    background-color: var(--bs-success-subtle);
+}
+
+.btn-analise {
+    min-width: 150px;
+}
+
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    display: none;
+    z-index: 9999;
+}
+
+.loading-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    padding: 30px;
+    border-radius: 10px;
+    text-align: center;
+    min-width: 300px;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #007bff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 15px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.estatisticas-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.tab-content {
+    background: white;
+    border-radius: 0 10px 10px 10px;
+    border: 1px solid #dee2e6;
+    padding: 20px;
+}
+
+.nav-tabs .nav-link {
+    border-radius: 10px 10px 0 0;
+}
+
+.remessa-card {
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 10px;
+    transition: all 0.2s ease;
+}
+
+.remessa-card:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transform: translateY(-1px);
+}
+
+.badge-fase {
+    font-size: 0.7em;
+    margin: 2px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid my-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2>
+                <i class="fas fa-chart-network me-2"></i>
+                Análise de Remessas x CCOs
+            </h2>
+            <p class="text-muted">Execute análises completas por filtros ou carregue arquivos JSON</p>
+        </div>
+    </div>
+
+    <!-- Estatísticas Gerais -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="estatisticas-card">
+                <div class="row">
+                    <div class="col-md-3 text-center">
+                        <h4 id="totalRemessasSistema">-</h4>
+                        <small>Total de Remessas</small>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <h4 id="totalContratosSistema">-</h4>
+                        <small>Contratos Ativos</small>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <h4 id="totalCamposSistema">-</h4>
+                        <small>Campos</small>
+                    </div>
+                    <div class="col-md-3 text-center">
+                        <h4 id="exerciciosDisponiveis">-</h4>
+                        <small>Exercícios</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Opções de Análise -->
+    <div class="analise-container">
+        <h5><i class="fas fa-cogs me-2"></i>Opções de Análise</h5>
+        
+        <!-- Tabs -->
+        <ul class="nav nav-tabs" id="analiseTab" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="filtros-tab" data-bs-toggle="tab" data-bs-target="#filtros-pane" type="button" role="tab">
+                    <i class="fas fa-filter me-1"></i>Análise por Filtros
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="upload-tab" data-bs-toggle="tab" data-bs-target="#upload-pane" type="button" role="tab">
+                    <i class="fas fa-upload me-1"></i>Upload de JSON
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="pesquisa-tab" data-bs-toggle="tab" data-bs-target="#pesquisa-pane" type="button" role="tab">
+                    <i class="fas fa-search me-1"></i>Pesquisar Remessas
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content" id="analiseTabContent">
+            <!-- Tab 1: Análise por Filtros -->
+            <div class="tab-pane fade show active" id="filtros-pane" role="tabpanel">
+                <div class="filtros-section">
+                    <h6><i class="fas fa-sliders-h me-2"></i>Filtros para Análise</h6>
+                    <form id="formAnalise">
+                        <div class="row">
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">Contrato CPP *</label>
+                                <select class="form-select" id="selectContratoAnalise" required onchange="carregarCamposAnalise()">
+                                    <option value="">Selecione...</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">Campo</label>
+                                <select class="form-select" id="selectCampoAnalise">
+                                    <option value="">Todos</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2 mb-3">
+                                <label class="form-label">Remessa</label>
+                                <input type="number" class="form-control" id="inputRemessaAnalise" placeholder="Número">
+                            </div>
+                            <div class="col-md-2 mb-3">
+                                <label class="form-label">Exercício</label>
+                                <input type="number" class="form-control" id="inputExercicioAnalise" placeholder="AAAA">
+                            </div>
+                            <div class="col-md-2 mb-3">
+                                <label class="form-label">Período</label>
+                                <input type="number" class="form-control" id="inputPeriodoAnalise" placeholder="MM" min="1" max="12">
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">Fase Remessa</label>
+                                <select class="form-select" id="selectFaseAnalise">
+                                    <option value="">Todas</option>
+                                    <option value="MEN">MEN</option>
+                                    <option value="ROP">ROP</option>
+                                    <option value="RAD">RAD</option>
+                                    <option value="REC">REC</option>
+                                    <option value="REV">REV</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">Origem dos Gastos</label>
+                                <select class="form-select" id="selectOrigemAnalise">
+                                    <option value="">Todas</option>
+                                    <option value="GASTO_EXCLUSIVO">Gasto Exclusivo</option>
+                                    <option value="GASTO_JAZIDA_COMPARTILHADA">Gasto Jazida Compartilhada</option>
+                                    <option value="GASTO_ATIVO_COMPARTILHADO">Gasto Ativo Compartilhado</option>
+                                    <option value="GASTO_AEGV">Gasto AEGV</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label class="form-label">Etapa</label>
+                                <select class="form-select" id="selectEtapaAnalise">
+                                    <option value="">Todas</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3 mb-3 d-flex align-items-end">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="checkAnaliseDetalhada" checked>
+                                    <label class="form-check-label" for="checkAnaliseDetalhada">
+                                        <strong>Análise Detalhada</strong><br>
+                                        <small class="text-muted">Inclui consolidações e estatísticas completas</small>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-12">
+                                <button type="button" class="btn btn-primary btn-analise me-2" onclick="executarAnalise()">
+                                    <i class="fas fa-play me-1"></i>Executar Análise
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="limparFiltrosAnalise()">
+                                    <i class="fas fa-eraser me-1"></i>Limpar
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Tab 2: Upload de JSON -->
+            <div class="tab-pane fade" id="upload-pane" role="tabpanel">
+                <div class="upload-area" id="upload-area">
+                    <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                    <h5>Clique aqui ou arraste o arquivo JSON</h5>
+                    <p class="text-muted">Arquivo gerado pelo script de análise - máximo: 16MB</p>
+                    <input type="file" id="file-input" accept=".json" style="display: none;">
+                </div>
+                
+                <div id="upload-status" class="mt-3" style="display: none;">
+                    <div class="progress mb-2">
+                        <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <small class="text-muted">Processando arquivo...</small>
+                </div>
+                
+                <div id="upload-result" class="mt-3"></div>
+            </div>
+
+            <!-- Tab 3: Pesquisar Remessas -->
+            <div class="tab-pane fade" id="pesquisa-pane" role="tabpanel">
+                <div class="filtros-section">
+                    <h6><i class="fas fa-search me-2"></i>Pesquisa de Remessas</h6>
+                    
+                    <!-- Pesquisa por ID -->
+                    <div class="mb-4">
+                        <h6><i class="fas fa-hashtag me-2"></i>Pesquisa por ID</h6>
+                        <div class="row">
+                            <div class="col-md-8">
+                                <input type="text" class="form-control" id="inputIdRemessa" placeholder="Digite o ID da remessa">
+                            </div>
+                            <div class="col-md-4">
+                                <button class="btn btn-primary w-100" onclick="pesquisarRemessaPorId()">
+                                    <i class="fas fa-search me-1"></i>Pesquisar por ID
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-center my-3">
+                        <strong>OU</strong>
+                    </div>
+
+                    <!-- Pesquisa por Filtros -->
+                    <div class="mb-4">
+                        <h6><i class="fas fa-filter me-2"></i>Pesquisa por Filtros</h6>
+                        <form id="formPesquisaRemessas">
+                            <div class="row">
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label">Contrato CPP *</label>
+                                    <select class="form-select" id="selectContratoPesquisa" required onchange="carregarCamposPesquisa()">
+                                        <option value="">Selecione...</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label">Campo</label>
+                                    <select class="form-select" id="selectCampoPesquisa">
+                                        <option value="">Todos</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2 mb-3">
+                                    <label class="form-label">Remessa</label>
+                                    <input type="number" class="form-control" id="inputRemessaPesquisa" placeholder="Número">
+                                </div>
+                                <div class="col-md-2 mb-3">
+                                    <label class="form-label">Exercício</label>
+                                    <input type="number" class="form-control" id="inputExercicioPesquisa" placeholder="AAAA">
+                                </div>
+                                <div class="col-md-2 mb-3">
+                                    <label class="form-label">Período</label>
+                                    <input type="number" class="form-control" id="inputPeriodoPesquisa" placeholder="MM" min="1" max="12">
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label">Fase Remessa</label>
+                                    <select class="form-select" id="selectFasePesquisa">
+                                        <option value="">Todas</option>
+                                        <option value="MEN">MEN</option>
+                                        <option value="ROP">ROP</option>
+                                        <option value="RAD">RAD</option>
+                                        <option value="REC">REC</option>
+                                        <option value="REV">REV</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label">Etapa</label>
+                                    <select class="form-select" id="selectEtapaPesquisa">
+                                        <option value="">Todas</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label">Origem dos Gastos</label>
+                                    <select class="form-select" id="selectOrigemPesquisa">
+                                        <option value="">Todas</option>
+                                        <option value="GASTO_EXCLUSIVO">Gasto Exclusivo</option>
+                                        <option value="GASTO_JAZIDA_COMPARTILHADA">Gasto Jazida Compartilhada</option>
+                                        <option value="GASTO_ATIVO_COMPARTILHADO">Gasto Ativo Compartilhado</option>
+                                        <option value="GASTO_AEGV">Gasto AEGV</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3 mb-3 d-flex align-items-end">
+                                    <button type="button" class="btn btn-success w-100" onclick="pesquisarRemessasPorFiltros()">
+                                        <i class="fas fa-search me-1"></i>Pesquisar
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Resultados da Pesquisa de Remessas -->
+                <div id="containerResultadosRemessas" class="resultados-container" style="display: none;">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5><i class="fas fa-list me-2"></i>Resultados da Pesquisa</h5>
+                        <span id="totalResultadosRemessas" class="badge bg-primary"></span>
+                    </div>
+                    
+                    <div id="resultadosRemessasContent"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Resultados da Análise -->
+    <div id="containerResultadosAnalise" class="resultados-container" style="display: none;">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5><i class="fas fa-chart-bar me-2"></i>Resultado da Análise</h5>
+            <div>
+                <button class="btn btn-outline-primary btn-sm me-2" onclick="exportarResultadoCSV()">
+                    <i class="fas fa-download me-1"></i>Exportar CSV
+                </button>
+                <button class="btn btn-outline-success btn-sm" onclick="visualizarDashboard()">
+                    <i class="fas fa-tachometer-alt me-1"></i>Ver Dashboard
+                </button>
+            </div>
+        </div>
+        
+        <div id="resultadosAnaliseContent"></div>
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="loading-overlay">
+    <div class="loading-content">
+        <div class="spinner"></div>
+        <h5 id="loadingTitle">Processando...</h5>
+        <p class="text-muted" id="loadingMessage">Por favor, aguarde</p>
+    </div>
+</div>
+
+<!-- Modal para detalhes da remessa -->
+<div class="modal fade" id="modalRemessaDetalhes" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Detalhes da Remessa
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="conteudoModalRemessaAnalise">
+                <!-- Conteúdo carregado via JavaScript -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para JSON Original -->
+<div class="modal fade" id="modalJsonOriginal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-code me-2"></i>JSON Original da Remessa
+                </h5>
+                <button type="button" class="btn-close" data-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="monaco-editor"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Fechar</button>
+                <button type="button" class="btn btn-primary" onclick="copiarJson()">
+                    <i class="fas fa-copy me-1"></i>Copiar JSON
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<script>
+// Variável global para armazenar resultado da análise
+let resultadoAnaliseAtual = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Carregar dados iniciais
+    carregarEstatisticasGerais();
+    carregarContratosAnalise();
+    carregarContratosPesquisa();
+    carregarEtapas();
+    
+    // Configurar upload de arquivo
+    configurarUpload();
+});
+
+function carregarEstatisticasGerais() {
+    fetch('/api/estatisticas-remessas')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const stats = data.estatisticas;
+                document.getElementById('totalRemessasSistema').textContent = stats.totalRemessas?.toLocaleString('pt-BR') || '0';
+                document.getElementById('totalContratosSistema').textContent = stats.totalContratos || '0';
+                document.getElementById('totalCamposSistema').textContent = stats.totalCampos || '0';
+                
+                if (stats.exercicios && stats.exercicios.length > 0) {
+                    const primeiroAno = stats.exercicios[0];
+                    const ultimoAno = stats.exercicios[stats.exercicios.length - 1];
+                    document.getElementById('exerciciosDisponiveis').textContent = `${primeiroAno}-${ultimoAno}`;
+                } else {
+                    document.getElementById('exerciciosDisponiveis').textContent = '0';
+                }
+            }
+        })
+        .catch(error => console.error('Erro ao carregar estatísticas:', error));
+}
+
+function carregarContratosAnalise() {
+    fetch('/api/contratos-remessas')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const select = document.getElementById('selectContratoAnalise');
+                select.innerHTML = '<option value="">Selecione...</option>';
+                data.contratos.forEach(contrato => {
+                    select.innerHTML += `<option value="${contrato}">${contrato}</option>`;
+                });
+            }
+        })
+        .catch(error => console.error('Erro ao carregar contratos:', error));
+}
+
+function carregarContratosPesquisa() {
+    fetch('/api/contratos-remessas')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const select = document.getElementById('selectContratoPesquisa');
+                select.innerHTML = '<option value="">Selecione...</option>';
+                data.contratos.forEach(contrato => {
+                    select.innerHTML += `<option value="${contrato}">${contrato}</option>`;
+                });
+            }
+        })
+        .catch(error => console.error('Erro ao carregar contratos:', error));
+}
+
+function carregarCamposAnalise() {
+    const contrato = document.getElementById('selectContratoAnalise').value;
+    const selectCampo = document.getElementById('selectCampoAnalise');
+    
+    if (!contrato) {
+        selectCampo.innerHTML = '<option value="">Todos</option>';
+        return;
+    }
+    
+    fetch(`/api/campos-remessa/${contrato}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                selectCampo.innerHTML = '<option value="">Todos</option>';
+                data.campos.forEach(campo => {
+                    selectCampo.innerHTML += `<option value="${campo}">${campo}</option>`;
+                });
+            }
+        })
+        .catch(error => console.error('Erro ao carregar campos:', error));
+}
+
+function carregarCamposPesquisa() {
+    const contrato = document.getElementById('selectContratoPesquisa').value;
+    const selectCampo = document.getElementById('selectCampoPesquisa');
+    
+    if (!contrato) {
+        selectCampo.innerHTML = '<option value="">Todos</option>';
+        return;
+    }
+    
+    fetch(`/api/campos-remessa/${contrato}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                selectCampo.innerHTML = '<option value="">Todos</option>';
+                data.campos.forEach(campo => {
+                    selectCampo.innerHTML += `<option value="${campo}">${campo}</option>`;
+                });
+            }
+        })
+        .catch(error => console.error('Erro ao carregar campos:', error));
+}
+
+function carregarEtapas() {
+    fetch('/api/etapas-remessas')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const selects = ['selectEtapaAnalise', 'selectEtapaPesquisa'];
+                selects.forEach(selectId => {
+                    const select = document.getElementById(selectId);
+                    select.innerHTML = '<option value="">Todas</option>';
+                    data.etapas.forEach(etapa => {
+                        select.innerHTML += `<option value="${etapa}">${etapa}</option>`;
+                    });
+                });
+            }
+        })
+        .catch(error => console.error('Erro ao carregar etapas:', error));
+}
+
+function executarAnalise() {
+    const contrato = document.getElementById('selectContratoAnalise').value;
+    
+    if (!contrato) {
+        alert('Contrato CPP é obrigatório para análise');
+        return;
+    }
+    
+    const filtros = {
+        contratoCPP: contrato,
+        campo: document.getElementById('selectCampoAnalise').value,
+        remessa: document.getElementById('inputRemessaAnalise').value,
+        exercicio: document.getElementById('inputExercicioAnalise').value,
+        periodo: document.getElementById('inputPeriodoAnalise').value,
+        faseRemessa: document.getElementById('selectFaseAnalise').value,
+        origemDoGasto: document.getElementById('selectOrigemAnalise').value,
+        etapa: document.getElementById('selectEtapaAnalise').value
+    };
+    
+    const analiseDetalhada = document.getElementById('checkAnaliseDetalhada').checked;
+    
+    const dados = {
+        filtros: filtros,
+        analiseDetalhada: analiseDetalhada
+    };
+    
+    mostrarLoading('Executando análise...', 'Esta operação pode levar alguns minutos dependendo do volume de dados');
+    
+    fetch('/api/analisar-remessas-ccos', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(dados)
+    })
+    .then(response => response.json())
+    .then(data => {
+        esconderLoading();
+        
+        if (data.success) {
+            resultadoAnaliseAtual = data;
+            exibirResultadoAnalise(data);
+        } else {
+            alert('Erro na análise: ' + data.error);
+        }
+    })
+    .catch(error => {
+        esconderLoading();
+        console.error('Erro na análise:', error);
+        alert('Erro ao executar análise');
+    });
+}
+
+function exibirResultadoAnalise(resultado) {
+    const container = document.getElementById('containerResultadosAnalise');
+    const content = document.getElementById('resultadosAnaliseContent');
+    
+    const stats = resultado.estatisticas;
+    const isDetalhada = resultado.tipoAnalise === 'DETALHADA';
+    
+    let html = `
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-info-circle me-2"></i>Resumo da Análise</h6>
+                            <p class="mb-1"><strong>Tipo:</strong> ${resultado.tipoAnalise}</p>
+                            <p class="mb-1"><strong>Parâmetros:</strong> ${JSON.stringify(resultado.parametros).replace(/[{}]/g, '').replace(/"/g, '')}</p>
+                            <p class="mb-0"><strong>Executada em:</strong> ${new Date(resultado.timestampAnalise).toLocaleString('pt-BR')}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="row text-center">
+                                <div class="col-6">
+                                    <h4 class="text-primary">${stats.totalRemessas}</h4>
+                                    <small>Remessas</small>
+                                </div>
+                                <div class="col-6">
+                                    <h4 class="text-success">${stats.totalFasesEncontradas}</h4>
+                                    <small>Fases</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h4 class="text-success">${stats.totalCCOsEncontradas}</h4>
+                        <small>CCOs Encontradas</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h4 class="text-warning">${stats.totalCCOsNaoEncontradas}</h4>
+                        <small>CCOs Não Encontradas</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h4 class="text-danger">${stats.totalCCOsDuplicadas}</h4>
+                        <small>CCOs Duplicadas</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h4 class="text-info">${((stats.totalCCOsEncontradas / stats.totalFasesEncontradas) * 100).toFixed(1)}%</h4>
+                        <small>Taxa de Encontro</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Distribuição de fases
+    if (Object.keys(stats.fasesPorTipo).length > 0) {
+        html += `
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6><i class="fas fa-chart-pie me-2"></i>Distribuição por Fase</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+        `;
+        
+        Object.entries(stats.fasesPorTipo).forEach(([fase, count]) => {
+            html += `
+                <div class="col-md-2 text-center mb-2">
+                    <span class="badge bg-primary badge-fase">${fase}</span><br>
+                    <strong>${count}</strong>
+                </div>
+            `;
+        });
+        
+        html += `
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Consolidação geral (se análise detalhada)
+    if (isDetalhada && stats.consolidacaoGeral) {
+        const consolidacao = stats.consolidacaoGeral;
+        html += `
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6><i class="fas fa-calculator me-2"></i>Consolidação Geral dos Gastos</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3 text-center">
+                                    <h5 class="text-primary">${consolidacao.contadores.total.toLocaleString('pt-BR')}</h5>
+                                    <small>Total de Gastos</small>
+                                </div>
+                                <div class="col-md-3 text-center">
+                                    <h5 class="text-success">R$ ${consolidacao.valores.reconhecido.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</h5>
+                                    <small>Valor Reconhecido</small>
+                                </div>
+                                <div class="col-md-3 text-center">
+                                    <h5 class="text-warning">${consolidacao.contadores.recAutomatico.toLocaleString('pt-BR')}</h5>
+                                    <small>Reconh. Automáticos</small>
+                                </div>
+                                <div class="col-md-3 text-center">
+                                    <h5 class="text-info">R$ ${consolidacao.valores.lancamentoTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</h5>
+                                    <small>Valor Total Lançado</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Lista de remessas analisadas
+    html += `
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h6><i class="fas fa-list me-2"></i>Remessas Analisadas (${resultado.remessasAnalisadas.length})</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+    `;
+    
+    resultado.remessasAnalisadas.forEach(remessa => {
+        const fasesHtml = remessa.fasesComReconhecimento.map(fase => {
+            const ccoStatus = fase.cco ? fase.cco.statusCCO : 'SEM_DADOS';
+            let badgeClass = 'bg-secondary';
+            if (ccoStatus === 'ENCONTRADA') badgeClass = 'bg-success';
+            else if (ccoStatus === 'NAO_ENCONTRADA') badgeClass = 'bg-warning';
+            else if (ccoStatus === 'CCOS_DUPLICADAS') badgeClass = 'bg-danger';
+            
+            return `<span class="badge ${badgeClass} badge-fase">${fase.fase}</span>`;
+        }).join(' ');
+        
+        html += `
+            <div class="col-md-6 mb-3">
+                <div class="remessa-card">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="mb-1">Remessa ${remessa.remessa}</h6>
+                            <p class="mb-1 text-muted">${remessa.contratoCPP} / ${remessa.campo}</p>
+                            <p class="mb-2 small">${remessa.exercicio}/${remessa.periodo} - ${remessa.mesAnoReferencia}</p>
+                            <div class="mb-2">${fasesHtml}</div>
+                        </div>
+                        <div class="text-end">
+                            <button class="btn btn-sm btn-outline-info" onclick="verDetalhesRemessaAnalise('${remessa.id}')">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += `
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Mostrar erros se houver
+    if (stats.erros && stats.erros.length > 0) {
+        html += `
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="alert alert-warning">
+                        <h6><i class="fas fa-exclamation-triangle me-2"></i>Erros Encontrados</h6>
+                        <ul class="mb-0">
+        `;
+        stats.erros.forEach(erro => {
+            html += `<li>${erro}</li>`;
+        });
+        html += `
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    content.innerHTML = html;
+    container.style.display = 'block';
+    
+    // Scroll para os resultados
+    container.scrollIntoView({ behavior: 'smooth' });
+}
+
+function pesquisarRemessaPorId() {
+    const id = document.getElementById('inputIdRemessa').value.trim();
+    
+    if (!id) {
+        alert('Por favor, digite um ID para pesquisa');
+        return;
+    }
+
+    const container = document.getElementById('containerResultadosAnalise');
+    container.style.display = 'none';
+    
+    const dados = { id: id };
+    executarPesquisaRemessas(dados);
+}
+
+function pesquisarRemessasPorFiltros() {
+    const contrato = document.getElementById('selectContratoPesquisa').value;
+    
+    if (!contrato) {
+        alert('Contrato CPP é obrigatório para pesquisa por filtros');
+        return;
+    }
+
+    const container = document.getElementById('containerResultadosAnalise');
+    container.style.display = 'none';
+    
+    const dados = {
+        contratoCPP: contrato,
+        campo: document.getElementById('selectCampoPesquisa').value,
+        remessa: document.getElementById('inputRemessaPesquisa').value,
+        exercicio: document.getElementById('inputExercicioPesquisa').value,
+        periodo: document.getElementById('inputPeriodoPesquisa').value,
+        faseRemessa: document.getElementById('selectFasePesquisa').value,
+        etapa: document.getElementById('selectEtapaPesquisa').value,
+        origemDoGasto: document.getElementById('selectOrigemPesquisa').value
+    };
+    
+    executarPesquisaRemessas(dados);
+}
+
+function executarPesquisaRemessas(dados) {
+    mostrarLoading('Pesquisando remessas...', 'Aguarde um momento');
+    
+    fetch('/api/pesquisar-remessas', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(dados)
+    })
+    .then(response => response.json())
+    .then(data => {
+        esconderLoading();
+        
+        if (data.success) {
+            exibirResultadosPesquisaRemessas(data.resultados, data.total, data.tipoConsulta);
+        } else {
+            alert('Erro na pesquisa: ' + data.error);
+        }
+    })
+    .catch(error => {
+        esconderLoading();
+        console.error('Erro na pesquisa:', error);
+        alert('Erro ao executar pesquisa');
+    });
+}
+
+function exibirResultadosPesquisaRemessas(resultados, total, tipoConsulta) {
+    const container = document.getElementById('containerResultadosRemessas');
+    const totalSpan = document.getElementById('totalResultadosRemessas');
+    const content = document.getElementById('resultadosRemessasContent');
+    
+    totalSpan.textContent = `${total} resultado(s)`;
+    
+    let html = '';
+    
+    if (resultados.length === 0) {
+        html = `
+            <div class="alert alert-info text-center">
+                <i class="fas fa-search fa-3x mb-3"></i>
+                <h5>Nenhuma remessa encontrada</h5>
+                <p>Tente ajustar os filtros de pesquisa</p>
+            </div>
+        `;
+    } else {
+        html = '<div class="row">';
+        
+        resultados.forEach(remessa => {
+            const fasesHtml = remessa.listaFasesReconhecimento.map(fase => 
+                `<span class="badge bg-primary badge-fase">${fase}</span>`
+            ).join(' ');
+            
+            html += `
+                <div class="col-md-6 mb-3">
+                    <div class="remessa-card">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">
+                                    Remessa ${remessa.remessa}
+                                    <span class="badge bg-info ms-2">${remessa.etapa}</span>
+                                </h6>
+                                <p class="mb-1 text-muted">${remessa.contratoCPP} / ${remessa.campo}</p>
+                                <p class="mb-2 small">
+                                    ${remessa.exercicio}/${remessa.periodo} - ${remessa.mesAnoReferencia}<br>
+                                    Fase: ${remessa.faseRemessa} | Origem: ${remessa.origemDoGasto}
+                                </p>
+                                
+                                <div class="row mb-2">
+                                    <div class="col-6">
+                                        <small class="text-muted">Total Gastos:</small><br>
+                                        <strong>${remessa.totalGastos}</strong>
+                                    </div>
+                                    <div class="col-6">
+                                        <small class="text-muted">Reconhecidos:</small><br>
+                                        <strong class="text-success">${remessa.gastosReconhecidos}</strong>
+                                    </div>
+                                </div>
+                                
+                                <div class="row mb-2">
+                                    <div class="col-6">
+                                        <small class="text-muted">Valor Total:</small><br>
+                                        <strong>R$ ${remessa.valorTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</strong>
+                                    </div>
+                                    <div class="col-6">
+                                        <small class="text-muted">Valor Reconhecido:</small><br>
+                                        <strong class="text-success">R$ ${remessa.valorReconhecido.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</strong>
+                                    </div>
+                                </div>
+                                
+                                ${fasesHtml ? `<div class="mb-2"><small class="text-muted">Fases c/ Reconhecimento:</small><br>${fasesHtml}</div>` : ''}
+                                
+                                <small class="text-muted">
+                                    <i class="fas fa-user me-1"></i>${remessa.usuarioResponsavel}<br>
+                                    <i class="fas fa-calendar me-1"></i>${remessa.dataLancamento} | v${remessa.version}
+                                </small>
+                            </div>
+                            <div class="text-end">
+                                <button class="btn btn-sm btn-outline-info" onclick="verDetalhesRemessaAnalise('${remessa.id}')" title="Ver detalhes">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-success mt-1" onclick="analisarEstaRemessa('${remessa.id}')" title="Analisar esta remessa">
+                                    <i class="fas fa-play"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+    }
+    
+    content.innerHTML = html;
+    container.style.display = 'block';
+    
+    // Scroll para os resultados
+    container.scrollIntoView({ behavior: 'smooth' });
+}
+
+function verDetalhesRemessaAnalise(remessaId) {
+    fetch(`/api/remessa-detalhada-analise/${remessaId}`)
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('conteudoModalRemessaAnalise').innerHTML = gerarConteudoModalRemessaAnalise(data);
+            new bootstrap.Modal(document.getElementById('modalRemessaDetalhes')).show();
+        })
+        .catch(error => {
+            console.error('Erro ao carregar detalhes da remessa:', error);
+            alert('Erro ao carregar detalhes da remessa');
+        });
+}
+
+function gerarConteudoModalRemessaAnalise(data) {
+    const info = data.informacoes_basicas;
+    const stats = data.estatisticas_gastos;
+    const fases_reconhecimento = data.fases_reconhecimento || [];
+    
+    return `
+        <div class="row">
+            <div class="col-md-6">
+                <h6><i class="fas fa-info-circle me-2"></i>Informações Básicas</h6>
+                <table class="table table-sm">
+                    <tr><td><strong>ID:</strong></td><td><code>${info.id}</code></td></tr>
+                    <tr><td><strong>Remessa:</strong></td><td>${info.remessa} (${info.remessaExposicao})</td></tr>
+                    <tr><td><strong>Contrato:</strong></td><td>${info.contratoCPP}</td></tr>
+                    <tr><td><strong>Campo:</strong></td><td>${info.campo}</td></tr>
+                    <tr><td><strong>Exercício/Período:</strong></td><td>${info.exercicio}/${info.periodo}</td></tr>
+                    <tr><td><strong>Mês/Ano Ref.:</strong></td><td>${info.mesAnoReferencia}</td></tr>
+                    <tr><td><strong>Fase Atual:</strong></td><td><span class="badge bg-info">${info.faseRemessa}</span></td></tr>
+                    <tr><td><strong>Etapa:</strong></td><td><span class="badge bg-secondary">${info.etapa}</span></td></tr>
+                    <tr><td><strong>Origem:</strong></td><td>${info.origemDoGasto}</td></tr>
+                    <tr><td><strong>Compartilhados:</strong></td><td>${info.gastosCompartilhados ? 'Sim' : 'Não'}</td></tr>
+                    <tr><td><strong>Responsável:</strong></td><td>${info.usuarioResponsavel}</td></tr>
+                    <tr><td><strong>Data Lançamento:</strong></td><td>${info.dataLancamento}</td></tr>
+                    <tr><td><strong>Versão:</strong></td><td>${info.version}</td></tr>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <h6><i class="fas fa-calculator me-2"></i>Estatísticas dos Gastos</h6>
+                <table class="table table-sm">
+                    <tr><td><strong>Total de Gastos:</strong></td><td>${stats.totalGastos}</td></tr>
+                    <tr><td><strong>Gastos Reconhecidos:</strong></td><td class="text-success">${stats.gastosReconhecidos}</td></tr>
+                    <tr><td><strong>Taxa de Reconhecimento:</strong></td><td>${((stats.gastosReconhecidos / stats.totalGastos) * 100).toFixed(1)}%</td></tr>
+                    <tr><td><strong>Valor Total:</strong></td><td>R$ ${stats.valorTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td></tr>
+                    <tr><td><strong>Valor Reconhecido:</strong></td><td class="text-success">R$ ${stats.valorReconhecido.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td></tr>
+                    <tr><td><strong>% Valor Reconhecido:</strong></td><td>${stats.valorTotal > 0 ? ((stats.valorReconhecido / stats.valorTotal) * 100).toFixed(1) : 0}%</td></tr>
+                    <tr><td><strong>Fases c/ Reconhecimento:</strong></td><td>${fases_reconhecimento.length}</td></tr>
+                    <tr><td colspan="2"><strong>Fases:</strong><br>${fases_reconhecimento.map(f => `<span class="badge bg-primary badge-fase">${f['fase']}</span>`).join(' ')}</td></tr>
+                </table>
+            </div>
+        </div>
+        
+        <div class="row mt-3">
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <h6><i class="fas fa-lightbulb me-2"></i>Ações Disponíveis</h6>
+                    <button class="btn btn-success me-2" onclick="analisarEstaRemessa('${info.id}')">
+                        <i class="fas fa-play me-1"></i>Analisar vs CCOs
+                    </button>
+                    <button class="btn btn-outline-primary" onclick="verRemessaCompleta('${info.id}')">
+                        <i class="fas fa-database me-1"></i>Ver Remessa Completa
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+//função para fechar todos os modais
+function fecharModais() {
+    $('.modal').modal('hide');
+}
+
+function analisarEstaRemessa(remessaId) {
+    if (confirm('Deseja executar análise completa desta remessa vs CCOs?')) {
+        mostrarLoading('Executando análise da remessa...', 'Analisando remessa específica e suas CCOs');
+        
+        // Buscar dados da remessa para extrair filtros
+        fetch(`/api/remessa-detalhada-analise/${remessaId}`)
+            .then(response => response.json())
+            .then(remessaData => {
+                const info = remessaData.informacoes_basicas;
+                
+                // Montar filtros específicos da remessa
+                const filtros = {
+                    contratoCPP: info.contratoCPP,
+                    campo: info.campo,
+                    remessa: info.remessa,
+                    exercicio: info.exercicio,
+                    periodo: info.periodo
+                };
+                
+                // Executar análise detalhada
+                return fetch('/api/analisar-remessas-ccos', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        filtros: filtros,
+                        analiseDetalhada: true
+                    })
+                });
+
+
+            })
+            .then(response => response.json())
+            .then(data => {
+                esconderLoading();
+                if (data.success) {
+                    fecharModais();
+                    resultadoAnaliseAtual = data;
+                    exibirResultadoAnalise(data);
+                    // Scroll para resultados
+                    document.getElementById('containerResultadosAnalise').scrollIntoView({behavior: 'smooth'});
+                } else {
+                    alert('Erro na análise: ' + data.error);
+                }
+            })
+            .catch(error => {
+                esconderLoading();
+                console.error('Erro:', error);
+                alert('Erro ao executar análise da remessa');
+            });
+    }
+}
+
+function verRemessaCompleta(remessaId) {
+    mostrarLoading('Carregando dados da remessa...', 'Buscando informações completas no banco');
+    
+    fetch(`/api/remessa-detalhada-analise/${remessaId}`)
+        .then(response => response.json())
+        .then(data => {
+            esconderLoading();
+            
+            // Criar modal com dados completos da remessa
+            const modalId = 'modalRemessaBanco';
+            let modal = document.getElementById(modalId);
+            
+            if (!modal) {
+                // Criar modal se não existir
+                modal = document.createElement('div');
+                modal.className = 'modal fade';
+                modal.id = modalId;
+                modal.innerHTML = `
+                    <div class="modal-dialog modal-xl">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title"><i class="fas fa-database me-2"></i>Dados Completos da Remessa</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <!--button class="btn btn-sm btn-outline-secondary ms-2" onclick="verRemessaNoBanco('${remessaId}')">
+                                <i class="fas fa-code me-1"></i>JSON Original
+                            </button-->
+                            <div class="modal-body" id="conteudoRemessaBanco"></div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+                                <button type="button" class="btn btn-primary" onclick="analisarEstaRemessa('${remessaId}')">
+                                    <i class="fas fa-play me-1"></i>Analisar vs CCOs
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+            
+            // Preencher conteúdo
+            document.getElementById('conteudoRemessaBanco').innerHTML = gerarConteudoRemessaBanco(data);
+            
+            // Mostrar modal
+            new bootstrap.Modal(modal).show();
+        })
+        .catch(error => {
+            esconderLoading();
+            console.error('Erro:', error);
+            alert('Erro ao carregar dados da remessa');
+        });
+}
+
+let monacoEditor;
+
+function verRemessaNoBanco(remessaId) {
+    mostrarLoading('Carregando dados da remessa...', 'Buscando informações completas no banco');
+    //modalJsonOriginal
+
+    fetch(`/api/remessa-original-json/${remessaId}`)
+        .then(response => response.json())
+        .then(data => {
+            esconderLoading();
+
+            if (data.error) {
+                alert(data.error);
+                return;
+            }
+
+            //console.log(data);
+            
+
+            fecharModais();
+
+            const modal = new bootstrap.Modal(document.getElementById('modalJsonOriginal'));
+            modal.show();
+
+            // Inicializar Monaco Editor
+            setTimeout(() => {
+                require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.34.0/min/vs' }});
+                require(['vs/editor/editor.main'], function() {
+                    if (monacoEditor) {
+                        monacoEditor.dispose();
+                    }
+                    
+                    monacoEditor = monaco.editor.create(document.getElementById('monaco-editor'), {
+                                value: data.remessa,
+                                language: 'json',
+                                theme: 'vs-dark',
+                                readOnly: true,
+                                automaticLayout: true,
+                                fontSize: 18,
+                                lineNumbers: "on",
+                                minimap: { enabled: false },
+                                scrollBeyondLastLine: false
+                            });
+                        });
+                    }, 100);
+
+        })
+        .catch(error => {
+            esconderLoading();
+            console.error('Erro:', error);
+            alert('Erro ao carregar dados da remessa');
+        });
+}
+
+function copiarJson() {
+    if (monacoEditor) {
+        const jsonText = monacoEditor.getValue();
+        navigator.clipboard.writeText(jsonText).then(() => {
+            alert('JSON copiado para a área de transferência!');
+        });
+    }
+}
+
+function gerarConteudoRemessaBanco(data) {
+    const info = data.informacoes_basicas;
+    const stats = data.estatisticas_gastos;
+    
+    let html = `
+        <div class="row mb-3">
+            <div class="col-12">
+                <div class="alert alert-primary">
+                    <h6><i class="fas fa-info-circle me-2"></i>Identificação</h6>
+                    <strong>ID:</strong> <code>${info.id}</code><br>
+                    <strong>Remessa:</strong> ${info.remessa} (Exposição: ${info.remessaExposicao})<br>
+                    <strong>Contrato/Campo:</strong> ${info.contratoCPP} / ${info.campo}
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <h6><i class="fas fa-cog me-2"></i>Configurações</h6>
+                <table class="table table-sm table-striped">
+                    <tr><td>Exercício/Período</td><td>${info.exercicio}/${info.periodo}</td></tr>
+                    <tr><td>Mês/Ano Referência</td><td>${info.mesAnoReferencia}</td></tr>
+                    <tr><td>Fase Atual</td><td><span class="badge bg-info">${info.faseRemessa}</span></td></tr>
+                    <tr><td>Etapa</td><td><span class="badge bg-secondary">${info.etapa}</span></td></tr>
+                    <tr><td>Origem do Gasto</td><td>${info.origemDoGasto}</td></tr>
+                    <tr><td>Gastos Compartilhados</td><td>${info.gastosCompartilhados ? 'Sim' : 'Não'}</td></tr>
+                    <tr><td>Fator Alocação</td><td>${info.fatorAlocacao || 'N/A'}</td></tr>
+                    <tr><td>UEP</td><td>${info.uep || 'N/A'}</td></tr>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <h6><i class="fas fa-chart-bar me-2"></i>Estatísticas dos Gastos</h6>
+                <table class="table table-sm table-striped">
+                    <tr><td>Total de Gastos</td><td><strong>${stats.totalGastos}</strong></td></tr>
+                    <tr><td>Gastos Reconhecidos</td><td><strong class="text-success">${stats.gastosReconhecidos}</strong></td></tr>
+                    <tr><td>Taxa Reconhecimento</td><td>${stats.taxaReconhecimento.toFixed(1)}%</td></tr>
+                    <tr><td>Valor Total</td><td>R$ ${stats.valorTotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td></tr>
+                    <tr><td>Valor Reconhecido</td><td><strong class="text-success">R$ ${stats.valorReconhecido.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</strong></td></tr>
+                    <tr><td>% Valor Reconhecido</td><td>${stats.percentualValorReconhecido.toFixed(1)}%</td></tr>
+                </table>
+            </div>
+        </div>
+    `;
+    
+    // Fases com reconhecimento
+    if (data.fases_reconhecimento?.length > 0) {
+        html += `
+            <div class="row mt-3">
+                <div class="col-12">
+                    <h6><i class="fas fa-tasks me-2"></i>Fases com Reconhecimento</h6>
+                    <div class="mb-2">
+                        ${data.fases_reconhecimento.map(f => `<span class="badge bg-primary me-1">${f.fase}</span>`).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Top classificações e responsáveis
+    if (data.top_classificacoes?.length > 0 || data.top_responsaveis?.length > 0) {
+        html += `
+            <div class="row mt-3">
+                <div class="col-md-6">
+                    <h6><i class="fas fa-tags me-2"></i>Top Classificações</h6>
+                    <ul class="list-group list-group-flush">
+                        ${data.top_classificacoes.slice(0, 5).map(c => 
+                            `<li class="list-group-item d-flex justify-content-between">
+                                <span>${c.classificacao}</span>
+                                <span class="badge bg-primary">${c.quantidade}</span>
+                            </li>`
+                        ).join('')}
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <h6><i class="fas fa-users me-2"></i>Top Responsáveis</h6>
+                    <ul class="list-group list-group-flush">
+                        ${data.top_responsaveis.slice(0, 5).map(r => 
+                            `<li class="list-group-item d-flex justify-content-between">
+                                <span>${r.responsavel}</span>
+                                <span class="badge bg-success">${r.quantidade}</span>
+                            </li>`
+                        ).join('')}
+                    </ul>
+                </div>
+            </div>
+        `;
+    }
+    
+    // Controle e auditoria
+    html += `
+        <div class="row mt-3">
+            <div class="col-12">
+                <h6><i class="fas fa-clipboard-check me-2"></i>Controle e Auditoria</h6>
+                <div class="row">
+                    <div class="col-md-4">
+                        <small class="text-muted">Responsável:</small><br>
+                        <strong>${info.usuarioResponsavel}</strong>
+                    </div>
+                    <div class="col-md-4">
+                        <small class="text-muted">Data Lançamento:</small><br>
+                        <strong>${info.dataLancamento}</strong>
+                    </div>
+                    <div class="col-md-4">
+                        <small class="text-muted">Versão:</small><br>
+                        <strong>v${info.version}</strong>
+                    </div>
+                </div>
+                ${info.processoAdministrativo ? `
+                    <div class="mt-2">
+                        <small class="text-muted">Processo Administrativo:</small><br>
+                        <code>${info.processoAdministrativo}</code>
+                    </div>
+                ` : ''}
+            </div>
+        </div>
+    `;
+    
+    return html;
+}
+
+function configurarUpload() {
+    const uploadArea = document.getElementById('upload-area');
+    const fileInput = document.getElementById('file-input');
+    const uploadStatus = document.getElementById('upload-status');
+    const uploadResult = document.getElementById('upload-result');
+    
+    // Click to upload
+    uploadArea.addEventListener('click', () => fileInput.click());
+    
+    // Drag and drop
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.classList.add('drag-over');
+    });
+    
+    uploadArea.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('drag-over');
+    });
+    
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove('drag-over');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            fileInput.files = files;
+            uploadFile(files[0]);
+        }
+    });
+    
+    // File input change
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            uploadFile(e.target.files[0]);
+        }
+    });
+    
+    function uploadFile(file) {
+        if (!file.name.endsWith('.json')) {
+            showUploadResult('danger', 'Apenas arquivos JSON são aceitos.');
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        uploadStatus.style.display = 'block';
+        uploadResult.innerHTML = '';
+        
+        // Simular progresso
+        let progress = 0;
+        const progressBar = document.querySelector('#upload-status .progress-bar');
+        const progressInterval = setInterval(() => {
+            progress += 10;
+            progressBar.style.width = progress + '%';
+            if (progress >= 90) {
+                clearInterval(progressInterval);
+            }
+        }, 100);
+        
+        fetch('/upload', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            clearInterval(progressInterval);
+            progressBar.style.width = '100%';
+            
+            setTimeout(() => {
+                uploadStatus.style.display = 'none';
+                
+                if (data.success) {
+                    showUploadResult('success', data.message + ' Redirecionando para o dashboard...');
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 1500);
+                } else {
+                    showUploadResult('danger', data.error);
+                }
+            }, 500);
+        })
+        .catch(error => {
+            clearInterval(progressInterval);
+            uploadStatus.style.display = 'none';
+            showUploadResult('danger', 'Erro ao enviar arquivo: ' + error.message);
+        });
+    }
+    
+    function showUploadResult(type, message) {
+        uploadResult.innerHTML = `
+            <div class="alert alert-${type} alert-dismissible fade show">
+                <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+    }
+}
+
+function limparFiltrosAnalise() {
+    document.getElementById('formAnalise').reset();
+    document.getElementById('selectCampoAnalise').innerHTML = '<option value="">Todos</option>';
+}
+
+function exportarResultadoCSV() {
+    if (!resultadoAnaliseAtual) {
+        alert('Nenhuma análise executada para exportar');
+        return;
+    }
+    
+    // Implementar exportação CSV
+    alert('Funcionalidade em desenvolvimento: Exportação CSV');
+}
+
+function visualizarDashboard() {
+    if (!resultadoAnaliseAtual) {
+        alert('Nenhuma análise executada para visualizar');
+        return;
+    }
+    
+    // Enviar resultado para cache e redirecionar
+    fetch('/api/salvar-analise-sessao', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({resultadoAnalise: resultadoAnaliseAtual})
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            window.location.href = `/dashboard?cache_key=${data.cache_key}`;
+        } else {
+            alert('Erro ao preparar dashboard: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Erro:', error);
+        alert('Erro ao preparar dashboard');
+    });
+}
+
+function mostrarLoading(titulo, mensagem) {
+    document.getElementById('loadingTitle').textContent = titulo;
+    document.getElementById('loadingMessage').textContent = mensagem;
+    document.getElementById('loadingOverlay').style.display = 'block';
+}
+
+function esconderLoading() {
+    document.getElementById('loadingOverlay').style.display = 'none';
+}
+</script>
+{% endblock %}

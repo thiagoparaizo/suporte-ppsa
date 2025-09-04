@@ -1,0 +1,975 @@
+{% extends "base.html" %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+
+
+{% block extra_css %}
+<style>
+.timeline-container {
+    position: relative;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.timeline-line {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: 100%;
+    background: linear-gradient(to bottom, #007bff, #28a745);
+    border-radius: 2px;
+}
+
+.timeline-item {
+    position: relative;
+    margin: 30px 0;
+    display: flex;
+    align-items: center;
+}
+
+.timeline-item:nth-child(odd) {
+    flex-direction: row;
+}
+
+.timeline-item:nth-child(even) {
+    flex-direction: row-reverse;
+}
+
+.timeline-content {
+    width: 45%;
+    background: white;
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    position: relative;
+}
+
+.timeline-icon {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 20px;
+    z-index: 10;
+}
+
+.timeline-date {
+    font-size: 0.9em;
+    color: #666;
+    margin-bottom: 10px;
+}
+
+.valores-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.valor-item {
+    background: #f8f9fa;
+    padding: 10px;
+    border-radius: 8px;
+    border-left: 3px solid #007bff;
+}
+
+.toggle-detalhes {
+    cursor: pointer;
+    color: #007bff;
+    text-decoration: none;
+    font-size: 0.9em;
+}
+
+.detalhes-extras {
+    margin-top: 15px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    display: none;
+}
+
+.valores-atuais-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.valor-atual-item {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 4px solid #007bff;
+}
+
+.valor-atual-principal {
+    border-left-color: #28a745;
+    background: #f8fff9;
+}
+
+.valor-atual-overhead {
+    border-left-color: #ffc107;
+    background: #fffef8;
+}
+
+.valor-atual-extra {
+    border-left-color: #6c757d;
+    background: #f8f9fa;
+}
+
+.valores-extras-section {
+    margin-top: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    display: none;
+}
+
+.status-badge-custom {
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-size: 0.8em;
+    font-weight: 500;
+}
+
+#monaco-editor {
+    height: 500px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+
+.timeline-card {
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.timeline-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+}
+
+.timeline-header {
+    position: relative;
+}
+
+.timeline-toggle-icon {
+    color: #6c757d;
+    font-size: 1.2em;
+    transition: transform 0.3s ease;
+}
+
+.timeline-card.expanded .timeline-toggle-icon {
+    transform: rotate(180deg);
+}
+
+.timeline-body {
+    transition: all 0.3s ease;
+}
+
+.timeline-date {
+    font-size: 0.9em;
+    color: #666;
+    margin-bottom: 10px;
+    font-weight: 500;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid my-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2>
+                    <i class="fas fa-history me-2"></i>
+                    Timeline da CCO
+                </h2>
+                <button class="btn btn-secondary" onclick="window.close()">
+                    <i class="fas fa-times me-1"></i>Fechar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Informações da CCO -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5><i class="fas fa-info-circle me-2"></i>Informações da CCO</h5>
+                    <div>
+                        <button class="btn btn-sm btn-outline-primary" onclick="toggleValoresExtras()">
+                            <i class="fas fa-eye me-1"></i>
+                            <span id="btnToggleText">Mostrar Valores Extras</span>
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary ms-2" onclick="mostrarJsonOriginal()">
+                            <i class="fas fa-code me-1"></i>JSON Original
+                        </button>
+                        <button class="btn btn-warning" onclick="abrirModalRecalculo('{{ cco._id }}')" title="Recalcular CCO">
+                            <i class="fas fa-calculator me-1"></i>Recalcular
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Informações básicas -->
+                    <div class="row mb-2">
+                        <div class="col-md-2">
+                            <strong>ID:</strong><br>
+                            <code style="font-size: 1em;">{{ cco._id }}</code>
+                        </div>
+                        <div class="col-md-2">
+                            <strong>Contrato/Campo:</strong><br>
+                            {{ cco.contratoCpp }} / {{ cco.campo }}
+                        </div>
+                        <div class="col-md-1">
+                            <strong>Remessa/Fase:</strong><br>
+                            {{ cco.remessa }} / {{ cco.faseRemessa }}
+                        </div>
+                        <div class="col-md-1">
+                            <strong>Ano / Mês:</strong><br>
+                            {{ cco.anoReconhecimento }} / {{ cco.mesReconhecimento }}
+                        </div>
+                        <div class="col-md-1">
+                            <strong>Período:</strong><br>
+                            {{ cco.periodo }}
+                        </div>
+                        <div class="col-md-2">
+                            <strong>Data Lançamento</strong><br>
+                            {{ valores_atuais.data_lancamento }}
+                        </div>
+                        <div class="col-md-2">
+                            <strong>Data Reconhecimento</strong><br>
+                            {{ valores_atuais.data_reconhecimento }}
+                        </div>
+                    </div>
+
+                    <!-- Fonte dos valores atuais -->
+                    <div class="alert alert-info">
+                        <strong><i class="fas fa-info-circle me-2"></i>Valores Atuais:</strong>
+                        {{ valores_atuais.fonte }}
+                        {% if valores_atuais.data_atualizacao %}
+                        - Atualizado em: {{ valores_atuais.data_atualizacao }}
+                        {% endif %}
+                    </div>
+
+                    <!-- Valores principais -->
+                    <div class="valores-atuais-grid">
+                        <div class="valor-atual-item valor-atual-principal">
+                            <small class="text-muted">Valor Reconhecido</small><br>
+                            <strong class="text-success">R$ {{ "{:,.2f}".format(valores_atuais.valorReconhecido).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
+                        </div>
+                        
+                        <div class="valor-atual-item valor-atual-principal">
+                            <small class="text-muted">Valor Rec. c/ Overhead</small><br>
+                            <strong class="text-primary">R$ {{ "{:,.2f}".format(valores_atuais.valorReconhecidoComOH).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
+                        </div>
+                        
+                        <div class="valor-atual-item valor-atual-overhead">
+                            <small class="text-muted">Overhead Total</small><br>
+                            <strong class="text-warning">R$ {{ "{:,.2f}".format(valores_atuais.overHeadTotal).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
+                        </div>
+                        
+                        <div class="valor-atual-item">
+                            <small class="text-muted">Quantidade Lançamentos</small><br>
+                            <strong>{{ valores_atuais.quantidadeLancamento }}</strong>
+                        </div>
+                        
+                        <div class="valor-atual-item">
+                            <small class="text-muted">Status Recuperação</small><br>
+                            <span class="status-badge-custom {% if cco.flgRecuperado %}bg-success text-white{% else %}bg-secondary text-white{% endif %}">
+                                {% if cco.flgRecuperado %}Recuperado{% else %}Não Recuperado{% endif %}
+                            </span>
+                        </div>
+                        
+                        {% if valores_atuais.valorNaoReconhecido > 0 %}
+                        <div class="valor-atual-item">
+                            <small class="text-muted">Valor Não Reconhecido</small><br>
+                            <strong class="text-danger">R$ {{ "{:,.2f}".format(valores_atuais.valorNaoReconhecido).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Valores extras (inicialmente ocultos) -->
+                    <div id="valoresExtrasSection" class="valores-extras-section">
+                        <h6 class="mb-3"><i class="fas fa-list me-2"></i>Valores Detalhados</h6>
+                        
+                        <div class="valores-atuais-grid">
+                            <div class="valor-atual-item valor-atual-extra">
+                                <small class="text-muted">Valor Lançamento Total</small><br>
+                                <strong>R$ {{ "{:,.2f}".format(valores_atuais.valorLancamentoTotal).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
+                            </div>
+                            
+                            <div class="valor-atual-item valor-atual-extra">
+                                <small class="text-muted">Valor Reconhecível</small><br>
+                                <strong>R$ {{ "{:,.2f}".format(valores_atuais.valorReconhecivel).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
+                            </div>
+                            
+                            <div class="valor-atual-item valor-atual-extra">
+                                <small class="text-muted">Valor Não Passível Recuperação</small><br>
+                                <strong>R$ {{ "{:,.2f}".format(valores_atuais.valorNaoPassivelRecuperacao).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
+                            </div>
+                            
+                            <div class="valor-atual-item valor-atual-extra">
+                                <small class="text-muted">Overhead Exploração</small><br>
+                                <strong>R$ {{ "{:,.2f}".format(valores_atuais.overHeadExploracao).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
+                            </div>
+                            
+                            <div class="valor-atual-item valor-atual-extra">
+                                <small class="text-muted">Overhead Produção</small><br>
+                                <strong>R$ {{ "{:,.2f}".format(valores_atuais.overHeadProducao).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
+                            </div>
+                            
+                            <div class="valor-atual-item valor-atual-extra">
+                                <small class="text-muted">Valor Reconhecido Exploração</small><br>
+                                <strong>R$ {{ "{:,.2f}".format(valores_atuais.valorReconhecidoExploracao).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
+                            </div>
+                            
+                            <div class="valor-atual-item valor-atual-extra">
+                                <small class="text-muted">Valor Reconhecido Produção</small><br>
+                                <strong>R$ {{ "{:,.2f}".format(valores_atuais.valorReconhecidoProducao).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
+                            </div>
+                            
+                            {% if valores_atuais.valorRecuperado > 0 %}
+                            <div class="valor-atual-item">
+                                <small class="text-muted">Valor Recuperado</small><br>
+                                <strong class="text-warning">R$ {{ "{:,.2f}".format(valores_atuais.valorRecuperado).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
+                            </div>
+                            {% endif %}
+                            
+                            {% if valores_atuais.taxaCorrecao > 0 %}
+                            <div class="valor-atual-item">
+                                <small class="text-muted">Taxa Correção</small><br>
+                                <strong>{{ "{:.4f}".format(valores_atuais.taxaCorrecao * 100) }}%</strong>
+                            </div>
+                            {% endif %}
+                            
+                            {% if valores_atuais.igpmAcumuladoReais > 0 %}
+                            <div class="valor-atual-item">
+                                <small class="text-muted">IGPM Acumulado (R$)</small><br>
+                                <strong>R$ {{ "{:,.2f}".format(valores_atuais.igpmAcumuladoReais).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para JSON Original -->
+    <div class="modal fade" id="modalJsonOriginal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-code me-2"></i>JSON Original da CCO
+                    </h5>
+                    <button type="button" class="btn-close" data-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="monaco-editor"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Fechar</button>
+                    <button type="button" class="btn btn-primary" onclick="copiarJson()">
+                        <i class="fas fa-copy me-1"></i>Copiar JSON
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="modalRecalculoCco" tabindex="-1" aria-labelledby="modalRecalculoCcoLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modalRecalculoCcoLabel">
+                        <i class="fas fa-calculator me-2"></i>
+                        Recalcular CCO
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Informações da CCO -->
+                    <div class="alert alert-info">
+                        <div class="row" id="infoCcoModal">
+                            <div class="col-md-6">
+                                <strong>Contrato:</strong> <span id="modalContrato">-</span><br>
+                                <strong>Campo:</strong> <span id="modalCampo">-</span>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Remessa:</strong> <span id="modalRemessa">-</span><br>
+                                <strong>Fase:</strong> <span id="modalFase">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Formulário de Recálculo -->
+                    <form id="formRecalculoModal">
+                        <input type="hidden" id="modalCcoId" name="cco_id">
+                        
+                        <div class="row">
+                            <div class="col-lg-6 mb-3">
+                                <label for="modalTipoRecalculo" class="form-label">Tipo de Recálculo *</label>
+                                <select class="form-select" id="modalTipoRecalculo" name="tipo_recalculo" required>
+                                    <option value="">Selecione...</option>
+                                    <option value="TRACK_PARTICIPATION">Track Participation (TP)</option>
+                                    <option value="AJUSTE_IPCA" disabled>Ajuste IPCA (Em desenvolvimento)</option>
+                                    <option value="AJUSTE_IGPM" disabled>Ajuste IGPM (Em desenvolvimento)</option>
+                                    <option value="AJUSTE_MANUAL" disabled>Ajuste Manual (Em desenvolvimento)</option>
+                                </select>
+                            </div>
+                            
+                            <div class="col-lg-6 mb-3">
+                                <label for="modalModoRecalculo" class="form-label">Modo de Recálculo *</label>
+                                <select class="form-select" id="modalModoRecalculo" name="modo_recalculo" required>
+                                    <option value="">Selecione...</option>
+                                    <option value="COMPLETO">Recálculo Completo</option>
+                                    <option value="CORRECAO_MONETARIA">Correção Monetária</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Parâmetros específicos para Track Participation -->
+                        <div id="modalParametrosTP" style="display: none;">
+                            <div class="row">
+                                <div class="col-lg-6 mb-3">
+                                    <label for="modalTpOriginal" class="form-label">TP Original * (%)</label>
+                                    <input type="number" class="form-control" id="modalTpOriginal" name="tp_original" 
+                                        step="0.001" min="0.001" max="100" placeholder="Ex: 60.407">
+                                </div>
+                                
+                                <div class="col-lg-6 mb-3">
+                                    <label for="modalTpCorrecao" class="form-label">TP Correção * (%)</label>
+                                    <input type="number" class="form-control" id="modalTpCorrecao" name="tp_correcao" 
+                                        step="0.001" min="0.001" max="100" placeholder="Ex: 60.408">
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-lg-6 mb-3">
+                                    <label class="form-label">Fator de Correção</label>
+                                    <input type="text" class="form-control" id="modalFatorCorrecao" readonly>
+                                </div>
+                                
+                                <div class="col-lg-6 mb-3">
+                                    <label class="form-label">Variação (%)</label>
+                                    <input type="text" class="form-control" id="modalVariacaoPercentual" readonly>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Observações -->
+                        <div class="mb-3">
+                            <label for="modalObservacoes" class="form-label">Observações</label>
+                            <textarea class="form-control" id="modalObservacoes" name="observacoes" rows="2" 
+                                    placeholder="Motivo do recálculo..."></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Cancelar
+                    </button>
+                    <button type="button" class="btn btn-primary" id="btnExecutarRecalculoModal">
+                        <i class="fas fa-calculator me-1"></i>Executar Recálculo
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Controles da Timeline -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h4><i class="fas fa-history me-2"></i>Timeline de Criação e Atualizações</h4>
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="expandirTodosCards()">
+                        <i class="fas fa-expand-arrows-alt me-1"></i>Expandir Todos
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="contrairTodosCards()">
+                        <i class="fas fa-compress-arrows-alt me-1"></i>Contrair Todos
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Timeline -->
+    <div class="timeline-container">
+        <div class="timeline-line"></div>
+        
+        {% for evento in timeline %}
+        <div class="timeline-item">
+            <div class="timeline-content timeline-card" onclick="toggleCardTimeline({{ loop.index }})">
+                <!-- Header do card (sempre visível) -->
+                <div class="timeline-header">
+                    <div class="timeline-date">
+                        {% if evento.dataCorrecao %}
+                            <i class="fas fa-calendar-alt me-1"></i> {{ evento.dataCorrecaoFormatada }} (Data Correção)
+                        {% else %}
+                            <i class="fas fa-calendar-alt me-1"></i>Data não informada
+                        {% endif %}
+
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-1">{{ evento.titulo }}</h5>
+                            <p class="text-muted mb-0">{{ evento.descricao }}</p>
+                        </div>
+                        <div class="timeline-toggle-icon">
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Conteúdo expandível (inicialmente oculto) -->
+                <div id="timeline-body-{{ loop.index }}" class="timeline-body" style="display: none;">
+                    <hr class="my-3">
+                    
+                    <div class="valores-grid">
+                        {% if TRUE or evento.valores.valorReconhecido and evento.valores.valorReconhecido > 0 %}
+                        <div class="valor-item">
+                            <small class="text-muted">Valor Reconhecido</small><br>
+                            <strong>R$ {{ "{:,.2f}".format(evento.valores.valorReconhecido).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
+                        </div>
+                        {% endif %}
+                        
+                        <!--if TRUE or evento.valores.valorReconhecidoComOH and evento.valores.valorReconhecidoComOH > 0 -->
+                        <div class="valor-item">
+                            <small class="text-muted">Valor Rec. c/ Overhead</small><br>
+                            <strong class="{% if evento.valores.valorReconhecidoComOH >= 0 %}text-success{% else %}text-danger{% endif %}">R$ {{ "{:,.2f}".format(evento.valores.valorReconhecidoComOH).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
+                        </div>
+                        
+                        
+                        {% if evento.valores.overHeadTotal and evento.valores.overHeadTotal > 0 %}
+                        <div class="valor-item">
+                            <small class="text-muted">Overhead Total</small><br>
+                            <strong>R$ {{ "{:,.2f}".format(evento.valores.overHeadTotal).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
+                        </div>
+                        {% endif %}
+                        
+                        {% if evento.tipo in ["IPCA", "IGPM", "RECUPERACAO"] or evento.valores.diferencaValor and evento.valores.diferencaValor != 0 %}
+                        <div class="valor-item">
+                            <small class="text-muted">Diferença</small><br>
+                            <strong class="{% if evento.valores.diferencaValor > 0 %}text-success{% else %}text-danger{% endif %}">
+                                R$ {{ "{:,.2f}".format(evento.valores.diferencaValor).replace(",", "X").replace(".", ",").replace("X", ".") }}
+                            </strong>
+                        </div>
+                        {% endif %}
+                        
+                        {% if evento.tipo == 'RECUPERACAO' or evento.valores.valorRecuperado and evento.valores.valorRecuperado > 0 %}
+                        <div class="valor-item">
+                            <small class="text-muted">Valor Recuperado</small><br>
+                            <strong class="text-warning">R$ {{ "{:,.2f}".format(evento.valores.valorRecuperado).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
+                        </div>
+                        {% endif %}
+                        
+                        {% if evento.tipo == 'RECUPERACAO' or evento.valores.valorRecuperadoTotal and evento.valores.valorRecuperadoTotal > 0 %}
+                        <div class="valor-item">
+                            <small class="text-muted">Valor Recuperado Total</small><br>
+                            <strong class="text-warning">R$ {{ "{:,.2f}".format(evento.valores.valorRecuperadoTotal).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
+                        </div>
+                        {% endif %}
+                        
+                        {% if evento.tipo in ["IPCA", "IGPM"] or (evento.valores.taxaCorrecao and evento.valores.taxaCorrecao > 0) %}
+                        <div class="valor-item">
+                            <small class="text-muted">Taxa de Correção</small><br>
+                            <strong>{{ "{:.4f}".format(evento.valores.taxaCorrecao * 100) }}%</strong>
+                        </div>
+                        {% endif %}
+                        
+                        {% if evento.tipo in ["IPCA", "IGPM"] or (evento.valores.igpmAcumuladoReais and evento.valores.igpmAcumuladoReais > 0) %}
+                        <div class="valor-item">
+                            <small class="text-muted">IGPM Acumulado (R$)</small><br>
+                            <strong>R$ {{ "{:,.2f}".format(evento.valores.igpmAcumuladoReais).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
+                        </div>
+                        {% endif %}
+                        
+                        {% if evento.valores.valorNaoReconhecido and evento.valores.valorNaoReconhecido > 0 %}
+                        <div class="valor-item">
+                            <small class="text-muted">Valor Não Reconhecido</small><br>
+                            <strong class="text-danger">R$ {{ "{:,.2f}".format(evento.valores.valorNaoReconhecido).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
+                        </div>
+                        {% endif %}
+
+                        {% if evento.tipo == 'CRIACAO' or (evento.valores.valorReconhecidoExploracao and evento.valores.valorReconhecidoExploracao > 0) %}
+                        <div class="valor-item">
+                            <small class="text-muted">Valor Rec. Exploração</small><br>
+                            <strong>R$ {{ "{:,.2f}".format(evento.valores.valorReconhecidoExploracao).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
+                        </div>
+                        {% endif %}
+                        
+                        {% if evento.tipo == 'CRIACAO' or (evento.valores.valorReconhecidoProducao and evento.valores.valorReconhecidoProducao > 0) %}
+                        <div class="valor-item">
+                            <small class="text-muted">Valor Rec. Produção</small><br>
+                            <strong>R$ {{ "{:,.2f}".format(evento.valores.valorReconhecidoProducao).replace(",", "X").replace(".", ",").replace("X", ".") }}</strong>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <a href="#" class="toggle-detalhes" onclick="toggleDetalhes({{ loop.index }}); event.stopPropagation();">
+                        <i class="fas fa-chevron-down me-1"></i>Ver detalhes
+                    </a>
+
+                    <div id="detalhes-{{ loop.index }}" class="detalhes-extras">
+                        {% for key, value in evento.detalhes.items() %}
+                        {% if value %}
+                        <div class="row mb-2">
+                            <div class="col-4">
+                                <strong>
+                                    {% if key == 'subTipo' %}Sub Tipo:
+                                    {% elif key == 'ativo' %}Status:
+                                    {% elif key == 'observacao' %}Observação:
+                                    {% elif key == 'transferencia' %}Transferência:
+                                    {% elif key == 'quantidadeLancamento' %}Qtd. Lançamento:
+                                    {% elif key == 'faseRemessa' %}Fase:
+                                    {% else %}{{ key | title }}:
+                                    {% endif %}
+                                </strong>
+                            </div>
+                            <div class="col-8">
+                                {% if key == 'ativo' %}
+                                    <span class="badge {% if value %}bg-success{% else %}bg-secondary{% endif %}">
+                                        {% if value %}Ativo{% else %}Inativo{% endif %}
+                                    </span>
+                                {% elif key == 'transferencia' %}
+                                    <span class="badge {% if value %}bg-info{% else %}bg-secondary{% endif %}">
+                                        {% if value %}Sim{% else %}Não{% endif %}
+                                    </span>
+                                {% else %}
+                                    {{ value }}
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                        
+                        {% if evento.dataCriacaoCorrecao %}
+                            <strong>Criação da Correcao:</strong> {{ evento.dataCriacaoCorrecao }}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="timeline-icon bg-{{ evento.cor }}">
+                <i class="{{ evento.icone }}"></i>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.34.0/min/vs/loader.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js"></script>
+<script>
+function toggleDetalhes(index) {
+    const detalhes = document.getElementById(`detalhes-${index}`);
+    const toggle = event.target.closest('.toggle-detalhes');
+    const icon = toggle.querySelector('i');
+    
+    if (detalhes.style.display === 'none' || !detalhes.style.display) {
+        detalhes.style.display = 'block';
+        icon.className = 'fas fa-chevron-up me-1';
+        toggle.innerHTML = '<i class="fas fa-chevron-up me-1"></i>Ocultar detalhes';
+    } else {
+        detalhes.style.display = 'none';
+        icon.className = 'fas fa-chevron-down me-1';
+        toggle.innerHTML = '<i class="fas fa-chevron-down me-1"></i>Ver detalhes';
+    }
+}
+
+let monacoEditor;
+
+function toggleValoresExtras() {
+    const section = document.getElementById('valoresExtrasSection');
+    const btnText = document.getElementById('btnToggleText');
+    
+    if (section.style.display === 'none' || !section.style.display) {
+        section.style.display = 'block';
+        btnText.textContent = 'Ocultar Valores Extras';
+    } else {
+        section.style.display = 'none';
+        btnText.textContent = 'Mostrar Valores Extras';
+    }
+}
+
+function mostrarJsonOriginal() {
+    const modal = new bootstrap.Modal(document.getElementById('modalJsonOriginal'));
+    modal.show();
+    
+    // Inicializar Monaco Editor
+    setTimeout(() => {
+        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.34.0/min/vs' }});
+        require(['vs/editor/editor.main'], function() {
+            if (monacoEditor) {
+                monacoEditor.dispose();
+            }
+            
+            monacoEditor = monaco.editor.create(document.getElementById('monaco-editor'), {
+                value: {{ cco_json | tojson }},
+                language: 'json',
+                theme: 'vs-dark',
+                readOnly: true,
+                automaticLayout: true,
+                fontSize: 18,
+                lineNumbers: "on",
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false
+            });
+        });
+    }, 100);
+}
+
+function copiarJson() {
+    if (monacoEditor) {
+        const jsonText = monacoEditor.getValue();
+        navigator.clipboard.writeText(jsonText).then(() => {
+            alert('JSON copiado para a área de transferência!');
+        });
+    }
+}
+
+function toggleCardTimeline(index) {
+    const body = document.getElementById(`timeline-body-${index}`);
+    const card = body.closest('.timeline-card');
+    const icon = card.querySelector('.timeline-toggle-icon i');
+    
+    if (body.style.display === 'none' || !body.style.display) {
+        body.style.display = 'block';
+        card.classList.add('expanded');
+        icon.className = 'fas fa-chevron-up';
+    } else {
+        body.style.display = 'none';
+        card.classList.remove('expanded');
+        icon.className = 'fas fa-chevron-down';
+    }
+}
+
+function expandirTodosCards() {
+    const timelineBodies = document.querySelectorAll('[id^="timeline-body-"]');
+    const timelineCards = document.querySelectorAll('.timeline-card');
+    const timelineIcons = document.querySelectorAll('.timeline-toggle-icon i');
+    
+    timelineBodies.forEach(body => {
+        body.style.display = 'block';
+    });
+    
+    timelineCards.forEach(card => {
+        card.classList.add('expanded');
+    });
+    
+    timelineIcons.forEach(icon => {
+        icon.className = 'fas fa-chevron-up';
+    });
+}
+
+function contrairTodosCards() {
+    const timelineBodies = document.querySelectorAll('[id^="timeline-body-"]');
+    const timelineCards = document.querySelectorAll('.timeline-card');
+    const timelineIcons = document.querySelectorAll('.timeline-toggle-icon i');
+    
+    timelineBodies.forEach(body => {
+        body.style.display = 'none';
+    });
+    
+    timelineCards.forEach(card => {
+        card.classList.remove('expanded');
+    });
+    
+    timelineIcons.forEach(icon => {
+        icon.className = 'fas fa-chevron-down';
+    });
+}
+
+// Modificar a função toggleDetalhes existente para parar propagação
+function toggleDetalhes(index) {
+    const detalhes = document.getElementById(`detalhes-${index}`);
+    const toggle = event.target.closest('.toggle-detalhes');
+    const icon = toggle.querySelector('i');
+    
+    if (detalhes.style.display === 'none' || !detalhes.style.display) {
+        detalhes.style.display = 'block';
+        icon.className = 'fas fa-chevron-up me-1';
+        toggle.innerHTML = '<i class="fas fa-chevron-up me-1"></i>Ocultar detalhes';
+    } else {
+        detalhes.style.display = 'none';
+        icon.className = 'fas fa-chevron-down me-1';
+        toggle.innerHTML = '<i class="fas fa-chevron-down me-1"></i>Ver detalhes';
+    }
+}
+
+// Função de apoio caso não exista ainda no template
+function abrirModalRecalculo(ccoId) {
+    if (typeof window.abrirModalRecalculo === 'function') {
+        window.abrirModalRecalculo(ccoId);
+    } else {
+        console.error('Função abrirModalRecalculo não encontrada. Certifique-se de que o modal está incluído.');
+        alert('Funcionalidade de recálculo não disponível. Verifique se o modal foi incluído corretamente.');
+    }
+}
+
+//Funções para o Modal de Recálculo
+document.addEventListener('DOMContentLoaded', function() {
+    const modalRecalculo = document.getElementById('modalRecalculoCco');
+    const formRecalculoModal = document.getElementById('formRecalculoModal');
+    const modalTipoRecalculo = document.getElementById('modalTipoRecalculo');
+    const modalParametrosTP = document.getElementById('modalParametrosTP');
+    const modalTpOriginal = document.getElementById('modalTpOriginal');
+    const modalTpCorrecao = document.getElementById('modalTpCorrecao');
+    const modalFatorCorrecao = document.getElementById('modalFatorCorrecao');
+    const modalVariacaoPercentual = document.getElementById('modalVariacaoPercentual');
+
+    // Função para abrir o modal de recálculo (chamada pelo botão na timeline)
+    window.abrirModalRecalculo = function(ccoId) {
+        // Limpar formulário
+        formRecalculoModal.reset();
+        modalParametrosTP.style.display = 'none';
+        
+        // Buscar dados da CCO para o modal
+        fetch('/recalculo/api/modal-recalculo', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ cco_id: ccoId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                preencherModalRecalculo(data.modal_data);
+                const modal = new bootstrap.Modal(modalRecalculo);
+                modal.show();
+            } else {
+                alert('Erro ao carregar dados da CCO: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Erro na requisição: ' + error.message);
+        });
+    };
+
+    function preencherModalRecalculo(dados) {
+        document.getElementById('modalCcoId').value = dados.cco_id;
+        document.getElementById('modalContrato').textContent = dados.contrato;
+        document.getElementById('modalCampo').textContent = dados.campo;
+        document.getElementById('modalRemessa').textContent = dados.remessa;
+        document.getElementById('modalFase').textContent = dados.fase;
+
+        // Preencher opções de tipo de recálculo
+        const selectTipo = document.getElementById('modalTipoRecalculo');
+        selectTipo.innerHTML = '<option value="">Selecione...</option>';
+        dados.tipos_recalculo.forEach(tipo => {
+            const option = document.createElement('option');
+            option.value = tipo.value;
+            option.textContent = tipo.label;
+            if (tipo.value !== 'TRACK_PARTICIPATION') {
+                option.disabled = true;
+            }
+            selectTipo.appendChild(option);
+        });
+
+        // Preencher opções de modo de recálculo
+        const selectModo = document.getElementById('modalModoRecalculo');
+        selectModo.innerHTML = '<option value="">Selecione...</option>';
+        dados.modos_recalculo.forEach(modo => {
+            const option = document.createElement('option');
+            option.value = modo.value;
+            option.textContent = modo.label;
+            selectModo.appendChild(option);
+        });
+    }
+
+    // Mostrar/ocultar parâmetros baseado no tipo de recálculo
+    modalTipoRecalculo.addEventListener('change', function() {
+        if (this.value === 'TRACK_PARTICIPATION') {
+            modalParametrosTP.style.display = 'block';
+            modalTpOriginal.required = true;
+            modalTpCorrecao.required = true;
+        } else {
+            modalParametrosTP.style.display = 'none';
+            modalTpOriginal.required = false;
+            modalTpCorrecao.required = false;
+        }
+    });
+
+    // Calcular fator de correção automaticamente
+    function calcularFatorModal() {
+        const tp1 = parseFloat(modalTpOriginal.value);
+        const tp2 = parseFloat(modalTpCorrecao.value);
+        
+        if (tp1 && tp2 && tp1 > 0) {
+            const fator = tp2 / tp1;
+            const variacao = ((tp2 - tp1) / tp1) * 100;
+            
+            modalFatorCorrecao.value = fator.toFixed(6);
+            modalVariacaoPercentual.value = variacao.toFixed(3) + '%';
+        } else {
+            modalFatorCorrecao.value = '';
+            modalVariacaoPercentual.value = '';
+        }
+    }
+
+    modalTpOriginal.addEventListener('input', calcularFatorModal);
+    modalTpCorrecao.addEventListener('input', calcularFatorModal);
+
+    // Executar recálculo do modal
+    document.getElementById('btnExecutarRecalculoModal').addEventListener('click', function() {
+        // Validar formulário
+        if (!formRecalculoModal.checkValidity()) {
+            formRecalculoModal.reportValidity();
+            return;
+        }
+
+        // Desabilitar botão
+        this.disabled = true;
+        this.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Processando...';
+
+        // Coletar dados do formulário
+        const formData = new FormData(formRecalculoModal);
+        const dados = {};
+        for (let [key, value] of formData.entries()) {
+            dados[key] = value;
+        }
+
+        // Fazer requisição
+        fetch('/recalculo/api/executar-recalculo', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(dados)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Fechar modal e redirecionar para resultado
+                new bootstrap.Modal(modalRecalculo).hide();
+                window.open(`/recalculo/resultado/${data.cache_key}`, '_blank');
+            } else {
+                alert('Erro no recálculo: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Erro na requisição: ' + error.message);
+        })
+        .finally(() => {
+            // Reabilitar botão
+            this.disabled = false;
+            this.innerHTML = '<i class="fas fa-calculator me-1"></i>Executar Recálculo';
+        });
+    });
+});
+</script>
+{% endblock %}

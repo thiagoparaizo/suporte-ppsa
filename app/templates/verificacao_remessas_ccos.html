@@ -1,0 +1,247 @@
+<!-- templates/verificacao_remessas_ccos.html -->
+{% extends "base.html" %}
+
+{% block title %}Análise de Remessas x CCOs{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">
+                    <i class="fas fa-chart-network me-2"></i>
+                    Análise de Remessas x CCOs
+                </h4>
+            </div>
+            <div class="card-body text-center">
+                <div class="row">
+                    <div class="col-md-6 mb-4">
+                        <div class="card h-100 border-primary">
+                            <div class="card-body">
+                                <i class="fas fa-search fa-3x text-primary mb-3"></i>
+                                <h5>Análise por Filtros</h5>
+                                <p class="text-muted">Execute análises completas diretamente do banco de dados aplicando filtros específicos</p>
+                                <ul class="list-unstyled text-start">
+                                    <li><i class="fas fa-check text-success me-2"></i>Análise em tempo real</li>
+                                    <li><i class="fas fa-check text-success me-2"></i>Filtros avançados</li>
+                                    <li><i class="fas fa-check text-success me-2"></i>Pesquisa de remessas</li>
+                                    <li><i class="fas fa-check text-success me-2"></i>Análise detalhada ou simplificada</li>
+                                </ul>
+                                <a href="{{ url_for('analise_ui.analise_remessas') }}" class="btn btn-primary">
+                                    <i class="fas fa-play me-1"></i>Iniciar Análise
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6 mb-4">
+                        <div class="card h-100 border-secondary">
+                            <div class="card-body">
+                                <i class="fas fa-upload fa-3x text-secondary mb-3"></i>
+                                <h5>Upload de JSON</h5>
+                                <p class="text-muted">Carregue arquivo JSON gerado pelo script de análise para visualizar dashboard</p>
+                                <ul class="list-unstyled text-start">
+                                    <li><i class="fas fa-check text-success me-2"></i>Suporte a análises offline</li>
+                                    <li><i class="fas fa-check text-success me-2"></i>Compatível com script MongoDB</li>
+                                    <li><i class="fas fa-check text-success me-2"></i>Dashboard completo</li>
+                                    <li><i class="fas fa-check text-success me-2"></i>Exportação de relatórios</li>
+                                </ul>
+                                <button class="btn btn-secondary" onclick="mostrarUpload()">
+                                    <i class="fas fa-cloud-upload-alt me-1"></i>Fazer Upload
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Área de Upload (inicialmente oculta) -->
+                <div id="upload-section" class="mt-4" style="display: none;">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Upload de Arquivo JSON</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="btn-upload" id="upload-area">
+                                <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                                <h5>Clique aqui ou arraste o arquivo JSON</h5>
+                                <p class="text-muted">Arquivo máximo: 16MB</p>
+                                <input type="file" id="file-input" accept=".json" style="display: none;">
+                            </div>
+                            
+                            <div id="upload-status" class="mt-3" style="display: none;">
+                                <div class="progress mb-2">
+                                    <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+                                </div>
+                                <small class="text-muted">Processando arquivo...</small>
+                            </div>
+                            
+                            <div id="upload-result" class="mt-3"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Informações sobre o formato esperado -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Sobre as Opções de Análise
+                        </h5>
+                    </div>
+                    <div class="card-body text-start">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-search me-2 text-primary"></i>Análise por Filtros</h6>
+                                <p>A nova funcionalidade permite executar análises diretamente do banco de dados:</p>
+                                <ul>
+                                    <li><strong>Pesquisa de Remessas:</strong> Encontre remessas específicas por ID ou filtros</li>
+                                    <li><strong>Análise em Tempo Real:</strong> Execute análises completas sem necessidade de scripts externos</li>
+                                    <li><strong>Filtros Avançados:</strong> Refine a análise por contrato, campo, exercício, etc.</li>
+                                    <li><strong>Análise Detalhada:</strong> Opção para incluir consolidações e estatísticas completas</li>
+                                </ul>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="fas fa-upload me-2 text-secondary"></i>Upload de JSON</h6>
+                                <p>Mantenha a compatibilidade com análises offline usando o script MongoDB:</p>
+                                <ul>
+                                    <li><strong>Formato Esperado:</strong> JSON gerado pelo script de análise</li>
+                                    <li><strong>Estrutura Requerida:</strong> parametros, remessasAnalisadas, estatisticas</li>
+                                    <li><strong>Dashboard Completo:</strong> Visualização interativa dos resultados</li>
+                                    <li><strong>Exportação:</strong> Gere relatórios CSV a partir dos dados</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-info mt-3">
+                            <i class="fas fa-lightbulb me-2"></i>
+                            <strong>Recomendação:</strong> Use a análise por filtros para obter resultados em tempo real e o upload de JSON para análises previamente processadas ou quando trabalhar offline.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function mostrarUpload() {
+    const uploadSection = document.getElementById('upload-section');
+    uploadSection.style.display = uploadSection.style.display === 'none' ? 'block' : 'none';
+    
+    if (uploadSection.style.display === 'block') {
+        configurarUpload();
+        uploadSection.scrollIntoView({ behavior: 'smooth' });
+    }
+}
+
+function configurarUpload() {
+    const uploadArea = document.getElementById('upload-area');
+    const fileInput = document.getElementById('file-input');
+    const uploadStatus = document.getElementById('upload-status');
+    const uploadResult = document.getElementById('upload-result');
+    
+    // Evitar configurar múltiplas vezes
+    if (uploadArea.dataset.configured) {
+        return;
+    }
+    uploadArea.dataset.configured = 'true';
+    
+    // Click to upload
+    uploadArea.addEventListener('click', () => fileInput.click());
+    
+    // Drag and drop
+    uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.style.borderColor = 'var(--bs-primary)';
+        uploadArea.style.backgroundColor = 'var(--bs-primary-subtle)';
+    });
+    
+    uploadArea.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        uploadArea.style.borderColor = '#dee2e6';
+        uploadArea.style.backgroundColor = 'transparent';
+    });
+    
+    uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.style.borderColor = '#dee2e6';
+        uploadArea.style.backgroundColor = 'transparent';
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            fileInput.files = files;
+            uploadFile(files[0]);
+        }
+    });
+    
+    // File input change
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            uploadFile(e.target.files[0]);
+        }
+    });
+    
+    function uploadFile(file) {
+        if (!file.name.endsWith('.json')) {
+            showResult('danger', 'Apenas arquivos JSON são aceitos.');
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        uploadStatus.style.display = 'block';
+        uploadResult.innerHTML = '';
+        
+        // Simular progresso
+        let progress = 0;
+        const progressBar = document.querySelector('#upload-status .progress-bar');
+        const progressInterval = setInterval(() => {
+            progress += 10;
+            progressBar.style.width = progress + '%';
+            if (progress >= 90) {
+                clearInterval(progressInterval);
+            }
+        }, 100);
+        
+        fetch('/upload', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            clearInterval(progressInterval);
+            progressBar.style.width = '100%';
+            
+            setTimeout(() => {
+                uploadStatus.style.display = 'none';
+                
+                if (data.success) {
+                    showResult('success', data.message + ' Redirecionando para o dashboard...');
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 1500);
+                } else {
+                    showResult('danger', data.error);
+                }
+            }, 500);
+        })
+        .catch(error => {
+            clearInterval(progressInterval);
+            uploadStatus.style.display = 'none';
+            showResult('danger', 'Erro ao enviar arquivo: ' + error.message);
+        });
+    }
+    
+    function showResult(type, message) {
+        uploadResult.innerHTML = `
+            <div class="alert alert-${type} alert-dismissible fade show">
+                <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2"></i>
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+    }
+}
+</script>
+{% endblock %}

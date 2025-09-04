@@ -1,0 +1,388 @@
+<!-- templates/recalculo/pesquisar_ccos.html -->
+{% extends "base.html" %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="max-width: 1600px;">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">
+            <i class="fas fa-search me-2"></i>
+            Pesquisar CCOs para Recálculo
+        </h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('portal_ui.index') }}">Portal</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('recalculo_ui.index_recalculo') }}">Recálculo</a></li>
+                <li class="breadcrumb-item active">Pesquisar CCOs</li>
+            </ol>
+        </nav>
+    </div>
+
+    <!-- Formulário de Filtros -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-filter me-2"></i>
+                Filtros de Pesquisa
+            </h5>
+        </div>
+        <div class="card-body">
+            <form id="formPesquisaCcos">
+                <div class="row">
+                    <div class="col-lg-3 col-md-6 mb-3">
+                         <label class="form-label">Contrato CPP *</label>
+                        <select class="form-select" id="contratoCpp" name="contratoCpp" required onchange="carregarCamposAnalise()">
+                            <option value="">Selecione...</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <label class="form-label">Campo</label>
+                        <select class="form-select" id="campo" name="campo">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-lg-2 col-md-4 mb-3">
+                        <label for="remessa" class="form-label">Remessa</label>
+                        <input type="number" class="form-control" id="remessa" name="remessa" placeholder="Ex: 123">
+                    </div>
+                    
+                    <div class="col-lg-2 col-md-4 mb-3">
+                        <label for="faseRemessa" class="form-label">Fase</label>
+                        <select class="form-select" id="faseRemessa" name="faseRemessa">
+                            <option value="">Todas as Fases</option>
+                            <option value="MEN">MEN</option>
+                            <option value="ROP">ROP</option>
+                            <option value="RAD">RAD</option>
+                            <option value="REC">REC</option>
+                            <option value="REV">REV</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Origem dos Gastos</label>
+                        <select class="form-select" id="origemDosGastos" name="origemDosGastos">
+                            <option value="">Todas</option>
+                            <option value="GASTO_EXCLUSIVO">Gasto Exclusivo</option>
+                            <option value="GASTO_JAZIDA_COMPARTILHADA">Gasto Jazida Compartilhada</option>
+                            <option value="GASTO_ATIVO_COMPARTILHADO">Gasto Ativo Compartilhado</option>
+                            <option value="GASTO_AEGV">Gasto AEGV</option>
+                        </select>
+                    </div>
+                    
+                    <div class="col-lg-2 col-md-4 mb-3">
+                        <label for="exercicio" class="form-label">Exercício</label>
+                        <input type="number" class="form-control" id="exercicio" name="exercicio" min="2010" max="2050" placeholder="Ex: 2024">
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-lg-2 col-md-4 mb-3">
+                        <label for="periodo" class="form-label">Período</label>
+                        <input type="number" class="form-control" id="periodo" name="periodo" min="1" max="12" placeholder="Ex: 12">
+                    </div>
+                    
+                    <div class="col-lg-4 col-md-8 mb-3">
+                        <label for="ccoId" class="form-label">ID da CCO (Pesquisa Direta)</label>
+                        <input type="text" class="form-control" id="ccoId" name="id" placeholder="Ex: DMGgBNfeQwGhbb_YFlVC4AAAAAA">
+                        <div class="form-text">Se informado, os outros filtros serão ignorados</div>
+                    </div>
+                    
+                    <div class="col-lg-6 col-md-12 mb-3 d-flex align-items-end">
+                        <div class="btn-group w-100" role="group">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search me-1"></i>Pesquisar
+                            </button>
+                            <button type="button" class="btn btn-secondary" id="btnLimparFiltros">
+                                <i class="fas fa-eraser me-1"></i>Limpar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Loading -->
+    <div id="loadingPesquisa" class="text-center py-4" style="display: none;">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Carregando...</span>
+        </div>
+        <p class="mt-2">Pesquisando CCOs...</p>
+    </div>
+
+    <!-- Resultados -->
+    <div id="containerResultados" style="display: none;">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-list me-2"></i>
+                    Resultados da Pesquisa
+                    <span id="totalResultados" class="badge bg-primary ms-2">0</span>
+                </h5>
+                <button class="btn btn-sm btn-outline-secondary" id="btnExpandirTodos">
+                    <i class="fas fa-expand-arrows-alt me-1"></i>Expandir Todos
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0" id="tabelaResultados">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Contrato</th>
+                                <th>Campo</th>
+                                <th>Remessa</th>
+                                <th>Fase</th>
+                                <th>Exercício</th>
+                                <th>Período</th>
+                                <th>Valor Reconhecido</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="corpoTabelaResultados">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mensagem de nenhum resultado -->
+    <div id="nenhumResultado" class="alert alert-info text-center" style="display: none;">
+        <i class="fas fa-info-circle me-2"></i>
+        Nenhuma CCO encontrada com os filtros aplicados.
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+
+    // Carregar dados iniciais
+    carregarContratosAnalise();
+    carregarContratosPesquisa();
+    carregarEtapas();
+
+    const formPesquisa = document.getElementById('formPesquisaCcos');
+    const loadingPesquisa = document.getElementById('loadingPesquisa');
+    const containerResultados = document.getElementById('containerResultados');
+    const nenhumResultado = document.getElementById('nenhumResultado');
+    const totalResultados = document.getElementById('totalResultados');
+    const corpoTabela = document.getElementById('corpoTabelaResultados');
+    const btnLimparFiltros = document.getElementById('btnLimparFiltros');
+
+    // Submissão do formulário
+    formPesquisa.addEventListener('submit', function(e) {
+        e.preventDefault();
+        executarPesquisa();
+    });
+
+    // Botão limpar filtros
+    btnLimparFiltros.addEventListener('click', function() {
+        formPesquisa.reset();
+        containerResultados.style.display = 'none';
+        nenhumResultado.style.display = 'none';
+    });
+
+    function executarPesquisa() {
+        // Mostrar loading
+        loadingPesquisa.style.display = 'block';
+        containerResultados.style.display = 'none';
+        nenhumResultado.style.display = 'none';
+
+        // Coletar dados do formulário
+        const formData = new FormData(formPesquisa);
+        const dados = {};
+        for (let [key, value] of formData.entries()) {
+            if (value.trim()) {
+                dados[key] = value.trim();
+            }
+        }
+
+        // Fazer requisição
+        fetch('/recalculo/api/pesquisar-ccos', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(dados)
+        })
+        .then(response => response.json())
+        .then(data => {
+            loadingPesquisa.style.display = 'none';
+            
+            if (data.success) {
+                exibirResultados(data.resultados);
+            } else {
+                mostrarErro('Erro na pesquisa: ' + data.error);
+            }
+        })
+        .catch(error => {
+            loadingPesquisa.style.display = 'none';
+            mostrarErro('Erro na requisição: ' + error.message);
+        });
+    }
+
+    function exibirResultados(resultados) {
+        if (resultados.length === 0) {
+            nenhumResultado.style.display = 'block';
+            return;
+        }
+
+        totalResultados.textContent = resultados.length;
+        corpoTabela.innerHTML = '';
+
+        resultados.forEach(cco => {
+            const linha = document.createElement('tr');
+            linha.innerHTML = `
+                <td>${cco.contratoCpp}</td>
+                <td>${cco.campo}</td>
+                <td>${cco.remessa}</td>
+                <td><span class="badge bg-secondary">${cco.faseRemessa}</span></td>
+                <td>${cco.exercicio}</td>
+                <td>${cco.periodo}</td>
+                <td class="text-end">R$ ${formatarMoeda(cco.valorReconhecidoComOH)}</td>
+                <td>${cco.flgRecuperado ? '<span class="badge bg-success">Recuperado</span>' : '<span class="badge bg-warning">Não Recuperado</span>'}</td>
+                <td>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button class="btn btn-primary btn-recalcular" data-cco-id="${cco.id}" title="Recalcular CCO">
+                            <i class="fas fa-calculator"></i>
+                        </button>
+                        <button class="btn btn-outline-info btn-timeline" data-cco-id="${cco.id}" title="Ver Timeline">
+                            <i class="fas fa-history"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+            corpoTabela.appendChild(linha);
+        });
+
+        // Adicionar event listeners para os botões
+        document.querySelectorAll('.btn-recalcular').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const ccoId = this.getAttribute('data-cco-id');
+                window.location.href = `/recalculo/executar/${ccoId}`;
+            });
+        });
+
+        document.querySelectorAll('.btn-timeline').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const ccoId = this.getAttribute('data-cco-id');
+                window.open(`/cco-timeline/${ccoId}`, '_blank');
+            });
+        });
+
+        containerResultados.style.display = 'block';
+    }
+
+    function formatarMoeda(valor) {
+        return new Intl.NumberFormat('pt-BR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(valor);
+    }
+
+    function mostrarErro(mensagem) {
+        alert(mensagem); // TODO: Implementar toast/modal mais elegante
+    }
+});
+
+function carregarContratosAnalise() {
+    fetch('/api/contratos-remessas')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const select = document.getElementById('contratoCpp');
+                select.innerHTML = '<option value="">Selecione...</option>';
+                data.contratos.forEach(contrato => {
+                    select.innerHTML += `<option value="${contrato}">${contrato}</option>`;
+                });
+            }
+        })
+        .catch(error => console.error('Erro ao carregar contratos:', error));
+}
+
+
+function carregarContratosPesquisa() {
+    fetch('/api/contratos-remessas')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const select = document.getElementById('selectContratoPesquisa');
+                select.innerHTML = '<option value="">Selecione...</option>';
+                data.contratos.forEach(contrato => {
+                    select.innerHTML += `<option value="${contrato}">${contrato}</option>`;
+                });
+            }
+        })
+        .catch(error => console.error('Erro ao carregar contratos:', error));
+}
+
+function carregarCamposAnalise() {
+    const contrato = document.getElementById('contratoCpp').value;
+    const selectCampo = document.getElementById('campo');
+    
+    if (!contrato) {
+        selectCampo.innerHTML = '<option value="">Todos</option>';
+        return;
+    }
+    
+    fetch(`/api/campos-remessa/${contrato}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                selectCampo.innerHTML = '<option value="">Todos</option>';
+                data.campos.forEach(campo => {
+                    selectCampo.innerHTML += `<option value="${campo}">${campo}</option>`;
+                });
+            }
+        })
+        .catch(error => console.error('Erro ao carregar campos:', error));
+}
+
+function carregarCamposPesquisa() {
+    const contrato = document.getElementById('selectContratoPesquisa').value;
+    const selectCampo = document.getElementById('selectCampoPesquisa');
+    
+    if (!contrato) {
+        selectCampo.innerHTML = '<option value="">Todos</option>';
+        return;
+    }
+    
+    fetch(`/api/campos-remessa/${contrato}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                selectCampo.innerHTML = '<option value="">Todos</option>';
+                data.campos.forEach(campo => {
+                    selectCampo.innerHTML += `<option value="${campo}">${campo}</option>`;
+                });
+            }
+        })
+        .catch(error => console.error('Erro ao carregar campos:', error));
+}
+
+function carregarEtapas() {
+    fetch('/api/etapas-remessas')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const selects = ['selectEtapaAnalise', 'selectEtapaPesquisa'];
+                selects.forEach(selectId => {
+                    const select = document.getElementById(selectId);
+                    select.innerHTML = '<option value="">Todas</option>';
+                    data.etapas.forEach(etapa => {
+                        select.innerHTML += `<option value="${etapa}">${etapa}</option>`;
+                    });
+                });
+            }
+        })
+        .catch(error => console.error('Erro ao carregar etapas:', error));
+}
+</script>
+{% endblock %}
