@@ -11,12 +11,14 @@ import logging
 from app.config import MONGO_URI
 from app.utils.converters import processar_json_mongodb, validar_e_converter_valor_monetario, converter_decimal128_para_float, formatar_data_brasileira, formatar_data_simples
 from app.utils.cache_utils import CacheManager
+from app.services.portal_service import PortalService
 
 portal_bp = Blueprint('portal_ui', __name__)
 
 logger = logging.getLogger(__name__)
 
 dados_analise = None
+portal_service = PortalService(MONGO_URI)
 
 @portal_bp.context_processor
 def inject_today_date():
@@ -105,7 +107,7 @@ def dashboard():
         return redirect(url_for('portal_ui.index'))
     
     # Processar dados para o dashboard
-    stats = processar_estatisticas(dados_analise)
+    stats = portal_service.processar_estatisticas(dados_analise)
     
     return render_template('dashboard.html', 
                          dados=dados_analise, 
@@ -122,210 +124,28 @@ def dados_grafico(tipo):
         return jsonify({'error': 'Nenhum dado carregado'}), 400
     
     if tipo == 'fases_tempo':
-        return jsonify(gerar_dados_fases_tempo())
+        return jsonify(portal_service.gerar_dados_fases_tempo(dados_analise))
     elif tipo == 'valores_remessa':
-        return jsonify(gerar_dados_valores_remessa())
+        return jsonify(portal_service.gerar_dados_valores_remessa(dados_analise))
     elif tipo == 'distribuicao_fases':
-        return jsonify(gerar_dados_distribuicao_fases())
+        return jsonify(portal_service.gerar_dados_distribuicao_fases(dados_analise))
     elif tipo == 'timeline_reconhecimento':
         return jsonify(gerar_dados_timeline())
     
     return jsonify({'error': 'Tipo de gráfico não reconhecido'}), 400
 
 def processar_estatisticas(dados):
-    """Processa dados para gerar estatísticas do dashboard"""
-    remessas = dados['remessasAnalisadas']
-    is_detalhada = dados.get('tipoAnalise') == 'DETALHADA'
-    
-    stats = {
-        'tipoAnalise': dados.get('tipoAnalise', 'SIMPLIFICADA'),
-        'resumo_geral': {
-            'total_remessas': len(remessas),
-            'total_fases': sum(len(r['fasesComReconhecimento']) for r in remessas),
-            'ccos_encontradas': int(dados['estatisticas']['totalCCOsEncontradas']) if 'totalCCOsEncontradas' in dados['estatisticas'] else 0,
-            'ccos_nao_encontradas': int(dados['estatisticas']['totalCCOsNaoEncontradas']) if 'totalCCOsNaoEncontradas' in dados['estatisticas'] else 0,
-            'fases_com_ccos_duplicadas': int(dados['estatisticas']['totalCCOsDuplicadas']) if 'totalCCOsDuplicadas' in dados['estatisticas'] else 0,
-        },
-        'por_exercicio': defaultdict(lambda: {'remessas': 0, 'fases': 0, 'valor_total': 0}),
-        'por_fase': defaultdict(int),
-        'valores': {
-            'total_reconhecido_remessas': 0,
-            'total_reconhecido_ccos': 0,
-            'maior_valor_remessa': 0,
-            'menor_valor_remessa': float('inf'),
-            'total_overhead': 0,
-            'total_correcoes_monetarias': 0
-        },
-        'datas': {
-            'primeira_remessa': None,
-            'ultima_remessa': None,
-            'tempo_medio_reconhecimento': 0
-        },
-        'consolidacao_detalhada': {}
-    }
-    
-    # Se é análise detalhada, incluir consolidação geral
-    if is_detalhada and 'consolidacaoGeral' in dados['estatisticas']:
-        stats['consolidacao_detalhada'] = dados['estatisticas']['consolidacaoGeral']
-        
-        stats['consolidacao_detalhada']['totalGastos'] = int(dados['estatisticas']['consolidacaoGeral']['contadores']['total']) or 0
-    
-    datas_reconhecimento = []
-    valores_remessa = []
-    
-    for remessa in remessas:
-        exercicio = int(remessa['exercicio'])
-        stats['por_exercicio'][exercicio]['remessas'] += 1
-        stats['por_exercicio'][exercicio]['fases'] += len(remessa['fasesComReconhecimento'])
-        
-        # Valores da remessa (consolidação ou por fase)
-        valor_remessa = 0
-        if is_detalhada and 'consolidacaoRemessa' in remessa:
-            valor_remessa = remessa['consolidacaoRemessa']['valores']['reconhecido']
-        
-        for fase in remessa['fasesComReconhecimento']:
-            stats['por_fase'][fase['fase']] += 1
-            
-            # Se não tem consolidação da remessa, somar por fase
-            if not is_detalhada and 'valorReconhecido' in fase:
-                valor_remessa += fase.get('valorReconhecido', 0)
-            
-            # Valores das fases (se detalhada)
-            if is_detalhada and 'consolidacao' in fase:
-                valor_fase = fase['consolidacao']['valores']['reconhecido']
-                stats['valores']['total_reconhecido_remessas'] += valor_fase
-            
-            # Datas
-            if fase.get('dataReconhecimento'):
-                try:
-                    data = datetime.fromisoformat(fase['dataReconhecimento'].replace('Z', '+00:00'))
-                    datas_reconhecimento.append(data)
-                except:
-                    pass
-            
-            # Valores CCO
-            if fase.get('cco') and fase['cco'].get('statusCCO') == 'ENCONTRADA':
-                try:
-                    # Verificar se tem valorReconhecido na estrutura da CCO
-                    if 'valorReconhecido' in fase['cco']:
-                        valor_cco = validar_e_converter_valor_monetario(fase['cco']['valorReconhecido'])
-                        stats['valores']['total_reconhecido_ccos'] += valor_cco
-                    
-                    # Valores de overhead
-                    if 'overHeadTotal' in fase['cco']:
-                        overhead = validar_e_converter_valor_monetario(fase['cco']['overHeadTotal'])
-                        stats['valores']['total_overhead'] += overhead
-                    
-                    # Correções monetárias
-                    if 'igpmAcumuladoReais' in fase['cco']:
-                        correcao = validar_e_converter_valor_monetario(fase['cco']['igpmAcumuladoReais'])
-                        stats['valores']['total_correcoes_monetarias'] += correcao
-                        
-                except Exception as e:
-                    logger.warning(f"Erro ao processar valores CCO: {e}")
-        
-        # Adicionar valor da remessa
-        if valor_remessa > 0:
-            valores_remessa.append(valor_remessa)
-            stats['por_exercicio'][exercicio]['valor_total'] += valor_remessa
-    
-    # Processar valores
-    if valores_remessa:
-        stats['valores']['maior_valor_remessa'] = max(valores_remessa)
-        stats['valores']['menor_valor_remessa'] = min(valores_remessa)
-    else:
-        stats['valores']['menor_valor_remessa'] = 0
-    
-    # Processar datas
-    if datas_reconhecimento:
-        # Normalizar todas as datas para remover timezone antes de ordenar
-        datas_normalizadas = []
-        for data in datas_reconhecimento:
-            if hasattr(data, 'replace') and data.tzinfo:
-                datas_normalizadas.append(data.replace(tzinfo=None))
-            else:
-                datas_normalizadas.append(data)
-        
-        datas_normalizadas.sort()
-        stats['datas']['primeira_remessa'] = datas_normalizadas[0].strftime('%d/%m/%Y')
-        stats['datas']['ultima_remessa'] = datas_normalizadas[-1].strftime('%d/%m/%Y')
-        
-        if len(datas_normalizadas) > 1:
-            diferenca_total = (datas_normalizadas[-1] - datas_normalizadas[0]).days
-            stats['datas']['tempo_medio_reconhecimento'] = diferenca_total / len(datas_normalizadas)
-    
-    # Converter defaultdicts para dicts normais
-    stats['por_exercicio'] = dict(stats['por_exercicio'])
-    stats['por_fase'] = dict(stats['por_fase'])
-    
-    return stats
+    """Compat: delega para PortalService"""
+    return portal_service.processar_estatisticas(dados)
 
 def gerar_dados_fases_tempo():
-    """Gera dados para gráfico de fases ao longo do tempo"""
-    dados = []
-    
-    for remessa in dados_analise['remessasAnalisadas']:
-        for fase in remessa['fasesComReconhecimento']:
-            if fase.get('dataReconhecimento'):
-                try:
-                    data = datetime.fromisoformat(fase['dataReconhecimento'].replace('Z', '+00:00'))
-                    dados.append({
-                        'data': data.strftime('%Y-%m'),
-                        'fase': fase['fase'],
-                        'remessa': remessa['remessa'],
-                        'valor': fase.get('valorReconhecido', 0)
-                    })
-                except:
-                    pass
-    
-    return dados
+    return portal_service.gerar_dados_fases_tempo(dados_analise)
 
 def gerar_dados_valores_remessa():
-    """Gera dados para gráfico de valores por remessa"""
-    dados = []
-    is_detalhada = dados_analise.get('tipoAnalise') == 'DETALHADA'
-    
-    for remessa in dados_analise['remessasAnalisadas']:
-        if is_detalhada and 'consolidacaoRemessa' in remessa:
-            # Análise detalhada - usar consolidação
-            consolidacao = remessa['consolidacaoRemessa']['valores']
-            dados.append({
-                'remessa': remessa['remessa'],
-                'exercicio': remessa['exercicio'],
-                'periodo': remessa['periodo'],
-                'valorReconhecido': consolidacao['reconhecido'],
-                'valorLancamentoTotal': consolidacao['lancamentoTotal'],
-                'valorNaoReconhecido': consolidacao['naoReconhecido'],
-                'valorRecusado': consolidacao['recusado'],
-                'valorNaoPassivelReconhecimento': consolidacao['naoPassivelReconhecimento'],
-                'fases': len(remessa['fasesComReconhecimento'])
-            })
-        else:
-            # Análise simplificada - usar soma das fases
-            valor_total = sum(fase.get('valorReconhecido', 0) for fase in remessa['fasesComReconhecimento'])
-            dados.append({
-                'remessa': remessa['remessa'],
-                'exercicio': remessa['exercicio'],
-                'periodo': remessa['periodo'],
-                'valorReconhecido': valor_total,
-                'valorLancamentoTotal': valor_total,
-                'valorNaoReconhecido': 0,
-                'valorRecusado': 0,
-                'valorNaoPassivelReconhecimento': 0,
-                'fases': len(remessa['fasesComReconhecimento'])
-            })
-    
-    return dados
+    return portal_service.gerar_dados_valores_remessa(dados_analise)
 
 def gerar_dados_distribuicao_fases():
-    """Gera dados para gráfico de distribuição de fases"""
-    contadores = Counter()
-    
-    for remessa in dados_analise['remessasAnalisadas']:
-        for fase in remessa['fasesComReconhecimento']:
-            contadores[fase['fase']] += 1
-    
-    return [{'fase': fase, 'count': count} for fase, count in contadores.items()]
+    return portal_service.gerar_dados_distribuicao_fases(dados_analise)
 
 # def gerar_dados_timeline():
 #     """Gera dados para timeline de reconhecimentos"""
@@ -519,8 +339,8 @@ def cco_detalhada(cco_id):
             'periodo': cco_encontrada.get('periodo') or remessa_origem['periodo'],
             'statusCCO': cco_encontrada.get('statusCCO')
         },
-        'valores_originais': extrair_valores_originais_cco(cco_encontrada),
-        'valores_atuais': extrair_valores_cco(cco_encontrada),
+        'valores_originais': portal_service.extrair_valores_originais_cco(cco_encontrada),
+        'valores_atuais': portal_service.extrair_valores_cco(cco_encontrada),
         'correcao_monetaria': {
             'aplicada': bool(cco_encontrada.get('tipo')),
             'tipo': cco_encontrada.get('tipo'),
@@ -555,119 +375,20 @@ def cco_detalhada(cco_id):
     return jsonify(detalhes)
 
 def extrair_valores_cco(cco_data):
-    """Extrai valores atuais da CCO"""
-    return {
-        'quantidadeLancamento': cco_data.get('quantidadeLancamento', 0),
-        'valorLancamentoTotal': validar_e_converter_valor_monetario(cco_data.get('valorLancamentoTotal', 0)),
-        'valorReconhecido': validar_e_converter_valor_monetario(cco_data.get('valorReconhecido', 0)),
-        'valorReconhecidoComOH': validar_e_converter_valor_monetario(cco_data.get('valorReconhecidoComOH', 0)),
-        'valorNaoReconhecido': validar_e_converter_valor_monetario(cco_data.get('valorNaoReconhecido', 0)),
-        'valorReconhecivel': validar_e_converter_valor_monetario(cco_data.get('valorReconhecivel', 0)),
-        'valorReconhecidoExploracao': validar_e_converter_valor_monetario(cco_data.get('valorReconhecidoExploracao', 0)),
-        'valorReconhecidoProducao': validar_e_converter_valor_monetario(cco_data.get('valorReconhecidoProducao', 0)),
-        'overHeadExploracao': validar_e_converter_valor_monetario(cco_data.get('overHeadExploracao', 0)),
-        'overHeadProducao': validar_e_converter_valor_monetario(cco_data.get('overHeadProducao', 0)),
-        'overHeadTotal': validar_e_converter_valor_monetario(cco_data.get('overHeadTotal', 0)),
-        'valorNaoPassivelRecuperacao': validar_e_converter_valor_monetario(cco_data.get('valorNaoPassivelRecuperacao', 0)),
-        'valorReconhecidoComOhOriginal': validar_e_converter_valor_monetario(cco_data.get('valorReconhecidoComOhOriginal', 0)),
-        'flgRecuperado': cco_data.get('flgRecuperado', False),
-        'transferencia': cco_data.get('transferencia', '')
-    }
-    
+    # Compatibilidade: delega para o serviço
+    return portal_service.extrair_valores_cco(cco_data)
+
 def extrair_valores_originais_cco(cco_data):
-    """Extrai valores originais da CCO (antes das correções)"""
-    # Para este exemplo, assumindo que os valores no JSON já são os corrigidos
-    # Em um cenário real, teríamos que buscar os valores antes da correção
-    return {
-        'valorReconhecidoOriginal': validar_e_converter_valor_monetario(cco_data.get('valorReconhecido', 0)),
-        'valorReconhecidoComOHOriginal': validar_e_converter_valor_monetario(cco_data.get('valorReconhecidoComOhOriginal', 0))
-    }
+    # Compatibilidade: delega para o serviço
+    return portal_service.extrair_valores_originais_cco(cco_data)
 
 @portal_bp.route('/api/remessas-detalhadas')
 def remessas_detalhadas():
     """API para tabela detalhada de remessas"""
     global dados_analise
-    
     if dados_analise is None:
         return jsonify({'error': 'Nenhum dado carregado'}), 400
-    
-    detalhes = []
-    is_detalhada = dados_analise.get('tipoAnalise') == 'DETALHADA'
-    
-    for remessa in dados_analise['remessasAnalisadas']:
-        for fase in remessa['fasesComReconhecimento']:
-            detalhe = {
-                'remessaId': remessa['id'],
-                'remessa': remessa['remessa'],
-                'exercicio': int(remessa['exercicio']),
-                'periodo': int(remessa['periodo']),
-                'mesAnoReferencia': remessa['mesAnoReferencia'],
-                'contratoCPP': remessa['contratoCPP'],
-                'campo': remessa['campo'],
-                'fase': fase['fase'],
-                'dataReconhecimento': fase.get('dataReconhecimento', ''),
-                'dataLancamento': fase.get('dataLancamento', ''),
-                'ccoEncontrada': 'Sim' if fase.get('cco') and fase['cco'].get('statusCCO') == 'ENCONTRADA' else 'Não',
-                'ccoId': fase.get('cco', {}).get('id', ''),
-                'statusCCO': fase.get('cco', {}).get('statusCCO', 'N/A'),
-                'observacao': fase.get('cco', {}).get('observacao', '')
-            }
-            
-            if fase.get('cco') and fase['cco'].get('statusCCO') == "CCOS_DUPLICADAS":
-                detalhe["ccoEncontrada"] = "DUPLICADAS"
-                # Para CSV, usar formato simples sem HTML
-                itens = [item.strip() for item in fase.get('cco', {}).get('id', '').split("|") if item.strip()]
-                detalhe['statusCCO'] = ' | '.join(itens)  # Formato CSV-friendly
-                
-            # Valores específicos para análise detalhada
-            if is_detalhada and 'consolidacao' in fase:
-                consolidacao = fase['consolidacao']
-                detalhe.update({
-                    'valorReconhecidoFase': consolidacao['valores']['reconhecido'],
-                    'valorLancamentoTotalFase': consolidacao['valores']['lancamentoTotal'],
-                    'quantidadeGastosFase': consolidacao['contadores']['total'],
-                    'reconhecidosAutomaticosFase': int(consolidacao['contadores']['recAutomatico']) or 0,
-                    'classificacoesTop': extrair_top_classificacoes(consolidacao['classificacoes']),
-                    'responsaveisTop': extrair_top_responsaveis(consolidacao['responsaveis']),
-                    'moedasUtilizadas': ' | '.join(consolidacao['moedas'].keys()) if consolidacao['moedas'] else ''
-                })
-            else:
-                # Análise simplificada
-                detalhe.update({
-                    'valorReconhecidoFase': fase.get('valorReconhecido', 0),
-                    'valorLancamentoTotalFase': 0,
-                    'quantidadeGastosFase': 0,
-                    'reconhecidosAutomaticosFase': 0,
-                    'classificacoesTop': '',
-                    'responsaveisTop': '',
-                    'moedasUtilizadas': ''
-                })
-            
-            # Processar valores CCO
-            if fase.get('cco') and fase['cco'].get('statusCCO') == 'ENCONTRADA':
-                cco = fase['cco']
-                detalhe.update({
-                    'valorCCO': validar_e_converter_valor_monetario(cco.get('valorReconhecido', 0)),
-                    'valorCCOComOH': validar_e_converter_valor_monetario(cco.get('valorReconhecidoComOH', 0)),
-                    'overheadTotal': validar_e_converter_valor_monetario(cco.get('overHeadTotal', 0)),
-                    'correcaoMonetaria': validar_e_converter_valor_monetario(cco.get('diferencaValor', 0)),
-                    'taxaCorrecao': validar_e_converter_valor_monetario(cco.get('taxaCorrecao', 0)),
-                    'tipoCorrecao': cco.get('tipo', ''),
-                    'dataCorrecao': cco.get('dataCorrecao', '')
-                })
-            else:
-                detalhe.update({
-                    'valorCCO': 0,
-                    'valorCCOComOH': 0,
-                    'overheadTotal': 0,
-                    'correcaoMonetaria': 0,
-                    'taxaCorrecao': 0,
-                    'tipoCorrecao': '',
-                    'dataCorrecao': ''
-                })
-            
-            detalhes.append(detalhe)
-    
+    detalhes = portal_service.remessas_detalhadas_list(dados_analise)
     return jsonify(detalhes)
 
 # def extrair_top_classificacoes(classificacoes, top=3):
@@ -705,249 +426,53 @@ def extrair_top_responsaveis(responsaveis, top=3):
     return ' | '.join([f"{k}:{v}" for k, v in sorted_resp])
 
 from bson import ObjectId
-from pymongo import MongoClient
-import os
-
-# Configuração do MongoDB
-client = MongoClient(MONGO_URI)
-db = client.sgppServices
 
 @portal_bp.route('/cco-timeline/<cco_id>')
 def cco_timeline(cco_id):
     """Página de timeline completa da CCO"""
-    try:
-        # Buscar CCO completa no MongoDB
-        cco_completa = db.conta_custo_oleo_entity.find_one({"_id": cco_id})
-        
-        if not cco_completa:
-            return render_template('erro.html', 
-                                 erro="CCO não encontrada", 
-                                 mensagem=f"CCO com ID {cco_id} não foi encontrada no banco de dados.")
-        
-        # Processar timeline
-        timeline_data = processar_timeline_cco(cco_completa)
-        
-        # Extrair valores atuais (última correção ou valores da raiz)
-        valores_atuais = extrair_valores_atuais_cco(cco_completa)
-        
-        return render_template('cco_timeline.html', 
-                             cco=cco_completa,
-                             timeline=timeline_data,
-                             valores_atuais=valores_atuais,
-                             cco_json=json.dumps(cco_completa, indent=2, default=str),
-                             titulo=f"Timeline CCO - {cco_id}")
-                             
-    except Exception as e:
-        logger.error(f"Erro ao carregar timeline da CCO {cco_id}: {e}")
+    # try:
+    # Buscar CCO completa no MongoDB via serviço
+    cco_completa = portal_service._get_db().conta_custo_oleo_entity.find_one({"_id": cco_id})
+    
+    if not cco_completa:
         return render_template('erro.html', 
-                             erro="Erro interno", 
-                             mensagem="Erro ao carregar dados da CCO.")
+                                erro="CCO não encontrada", 
+                                mensagem=f"CCO com ID {cco_id} não foi encontrada no banco de dados.")
+    
+    # Processar timeline
+    timeline_data = portal_service.processar_timeline_cco(cco_completa)
+    
+    # Extrair valores atuais (última correção ou valores da raiz)
+    valores_atuais = portal_service.extrair_valores_atuais_cco(cco_completa)
+    
+    return render_template('cco_timeline.html', 
+                            cco=cco_completa,
+                            timeline=timeline_data,
+                            valores_atuais=valores_atuais,
+                            cco_json=json.dumps(cco_completa, indent=2, default=str),
+                            titulo=f"Timeline CCO - {cco_id}")
+                             
+    # except Exception as e:
+    #     logger.error(f"Erro ao carregar timeline da CCO {cco_id}: {e}")
+    #     return render_template('erro.html', 
+    #                          erro="Erro interno", 
+    #                          mensagem="Erro ao carregar dados da CCO.")
 
 def extrair_valores_atuais_cco(cco_data):
-    """Extrai valores atuais da CCO (última correção ou valores da raiz)"""
-    valores_atuais = {}
-    
-    dataLancamento = formatar_data_brasileira(cco_data.get('dataLancamento'))
-    dataReconhecimento = formatar_data_brasileira(cco_data.get('dataReconhecimento'))
-    valores_atuais['data_lancamento'] = formatar_data_brasileira(dataLancamento)
-    valores_atuais['data_reconhecimento'] = formatar_data_brasileira(dataReconhecimento)
-    
-    # Se tem correções monetárias, usar a última
-    if 'correcoesMonetarias' in cco_data and cco_data['correcoesMonetarias']:
-        ultima_correcao = cco_data['correcoesMonetarias'][-1]
-        fonte = ultima_correcao
-        dataAtualizacao =ultima_correcao.get('dataCorrecao') or ultima_correcao.get('dataCriacaoCorrecao')
-        dataCorrecao = ultima_correcao.get('dataCorrecao')
-        dataCriacaoCorrecao = ultima_correcao.get('dataCriacaoCorrecao')
-        valores_atuais['fonte'] = f"Última correção ({ultima_correcao.get('tipo', 'N/A')})"
-        valores_atuais['data_atualizacao'] = formatar_data_brasileira(dataAtualizacao)
-        valores_atuais['data_correcao'] = formatar_data_brasileira(dataCorrecao)
-        valores_atuais['data_criacao_correcao'] = formatar_data_brasileira(dataCriacaoCorrecao)
-        
-        
-    else:
-        # Usar valores da raiz da CCO
-        fonte = cco_data
-        valores_atuais['fonte'] = "Valores originais da CCO"
-        #valores_atuais['data_atualizacao'] = cco_data.get('dataLancamento')
-    
-    # Extrair valores principais
-    valores_atuais.update({
-        'valorReconhecido': converter_decimal128_para_float(fonte.get('valorReconhecido', 0)),
-        'valorReconhecidoComOH': converter_decimal128_para_float(fonte.get('valorReconhecidoComOH', 0)),
-        'overHeadTotal': converter_decimal128_para_float(fonte.get('overHeadTotal', 0)),
-        'valorLancamentoTotal': converter_decimal128_para_float(fonte.get('valorLancamentoTotal', 0)),
-        'valorReconhecivel': converter_decimal128_para_float(fonte.get('valorReconhecivel', 0)),
-        'valorNaoReconhecido': converter_decimal128_para_float(fonte.get('valorNaoReconhecido', 0)),
-        'valorNaoPassivelRecuperacao': converter_decimal128_para_float(fonte.get('valorNaoPassivelRecuperacao', 0)),
-        'quantidadeLancamento': fonte.get('quantidadeLancamento', 0),
-        'flgRecuperado': fonte.get('flgRecuperado', False),
-        
-        # Valores extras (podem não existir)
-        'valorRecuperado': converter_decimal128_para_float(fonte.get('valorRecuperado', 0)),
-        'valorRecuperadoTotal': converter_decimal128_para_float(fonte.get('valorRecuperadoTotal', 0)),
-        'taxaCorrecao': converter_decimal128_para_float(fonte.get('taxaCorrecao', 0)),
-        'igpmAcumulado': converter_decimal128_para_float(fonte.get('igpmAcumulado', 0)),
-        'igpmAcumuladoReais': converter_decimal128_para_float(fonte.get('igpmAcumuladoReais', 0)),
-        'diferencaValor': converter_decimal128_para_float(fonte.get('diferencaValor', 0)),
-        'overHeadExploracao': converter_decimal128_para_float(fonte.get('overHeadExploracao', 0)),
-        'overHeadProducao': converter_decimal128_para_float(fonte.get('overHeadProducao', 0)),
-        'valorReconhecidoExploracao': converter_decimal128_para_float(fonte.get('valorReconhecidoExploracao', 0)),
-        'valorReconhecidoProducao': converter_decimal128_para_float(fonte.get('valorReconhecidoProducao', 0)),
-        
-        # Informações adicionais
-        'ativo': fonte.get('ativo', True),
-        'subTipo': fonte.get('subTipo', ''),
-        'transferencia': fonte.get('transferencia', False)
-    })
-    
-    return valores_atuais
+    # Compatibilidade: delega para o serviço
+    return portal_service.extrair_valores_atuais_cco(cco_data)
 
 def processar_timeline_cco(cco_data):
-    """Processa dados da CCO para gerar timeline"""
-    timeline = []
-    
-    # Evento inicial - Criação da CCO
-    timeline.append({
-        'tipo': 'CRIACAO',
-        'titulo': 'CCO Criada',
-        #'dataCorrecao': cco_data.get('dataLancamento'),
-        'descricao': f"CCO criada para remessa {cco_data.get('remessa')} - Fase {cco_data.get('faseRemessa')}",
-        'valores': {
-            'valorReconhecido': converter_decimal128_para_float(cco_data.get('valorReconhecido', 0)),
-            'valorReconhecidoComOH': converter_decimal128_para_float(cco_data.get('valorReconhecidoComOH', 0)),
-            'overHeadTotal': converter_decimal128_para_float(cco_data.get('overHeadTotal', 0)),
-            'valorLancamentoTotal': converter_decimal128_para_float(cco_data.get('valorLancamentoTotal', 0)),
-            'valorNaoReconhecido': converter_decimal128_para_float(cco_data.get('valorNaoReconhecido', 0)),
-            'valorReconhecidoExploracao': converter_decimal128_para_float(cco_data.get('valorReconhecidoExploracao', 0)),
-			'valorReconhecidoProducao': converter_decimal128_para_float(cco_data.get('valorReconhecidoProducao', 0)),
-			'overHeadExploracao': converter_decimal128_para_float(cco_data.get('overHeadExploracao', 0)),
-			'overHeadProducao': converter_decimal128_para_float(cco_data.get('overHeadProducao', 0)),
-			'valorReconhecivel': converter_decimal128_para_float(cco_data.get('valorReconhecivel', 0)),
-            'valorNaoPassivelRecuperacao': converter_decimal128_para_float(cco_data.get('valorNaoPassivelRecuperacao', 0)),
-			'valorRecusado': converter_decimal128_para_float(cco_data.get('valorRecusado', 0)),
-			'diferencaValor': converter_decimal128_para_float(cco_data.get('diferencaValor', 0))
-        },
-        'detalhes': {
-            'dataLancamento': formatar_data_brasileira(cco_data.get('dataLancamento')),
-            'dataReconhecimento': formatar_data_brasileira(cco_data.get('dataReconhecimento')),
-            'contrato': cco_data.get('contratoCpp'),
-            'campo': cco_data.get('campo', ''),
-            'remessa': cco_data.get('remessa', ''),
-            'remessaExposicao': cco_data.get('remessaExposicao', ''),
-            'quantidadeLancamento': cco_data.get('quantidadeLancamento', 0),
-            'anoReconhecimento': cco_data.get('anoReconhecimento', 0),
-            'mesReconhecimento': cco_data.get('mesReconhecimento', 0),
-            'mesAnoReferencia': cco_data.get('mesAnoReferencia', ''),
-            'faseRemessa': cco_data.get('faseRemessa', ''),
-            'faseRespostaGestora': cco_data.get('faseRespostaGestora', ''),
-            'periodo': cco_data.get('periodo', 0),
-            'version': cco_data.get('version', 0)
-        },
-        'icone': 'fas fa-plus-circle',
-        'cor': 'success'
-    })
-    
-    # Processar correções monetárias
-    if 'correcoesMonetarias' in cco_data and cco_data['correcoesMonetarias']:
-        for i, correcao in enumerate(cco_data['correcoesMonetarias']):
-            evento = processar_evento_correcao(correcao, i + 1)
-            timeline.append(evento)
-    
-    # Ordenar por data
-    #timeline.sort(key=lambda x: x['data'] if x['data'] else '1900-01-01')
-    # Ordenar por data em ordem DECRESCENTE (mais recentes primeiro)
-    timeline.sort(key=lambda x: x['dataCorrecao'] if 'dataCorrecao' in x else '1900-01-01', reverse=True)
-    
-    return timeline
+    # Compatibilidade: delega para o serviço
+    return portal_service.processar_timeline_cco(cco_data)
 
 def processar_evento_correcao(correcao, sequencia):
-    """Processa um evento de correção monetária"""
-    tipo = correcao.get('tipo', 'DESCONHECIDO')
-    
-    # Mapear tipos para apresentação
-    tipo_map = {
-        'IPCA': {'titulo': 'Correção Monetária IPCA', 'icone': 'fas fa-chart-line', 'cor': 'info'},
-        'IGPM': {'titulo': 'Correção Monetária IGPM', 'icone': 'fas fa-chart-line', 'cor': 'info'},
-        'RECUPERACAO': {'titulo': 'Recuperação de Valor', 'icone': 'fas fa-download', 'cor': 'warning'},
-        'INVALIDACAO_RECONHECIMENTO_PARCIAL': {'titulo': 'Invalidação Parcial', 'icone': 'fas fa-repeat', 'cor': 'dark'},
-        'RETIFICACAO': {'titulo': 'Retificação Manual', 'icone': 'fas fa-edit', 'cor': 'secondary'}
-    }
-    
-    config = tipo_map.get(tipo, {'titulo': tipo, 'icone': 'fas fa-question-circle', 'cor': 'secondary'})
-    
-    # Descrição baseada no tipo
-    descricao = gerar_descricao_evento(tipo, correcao)
-    
-    # Extrair valores com tratamento seguro
-    valores = {
-        'valorReconhecido': converter_decimal128_para_float(correcao.get('valorReconhecido', 0)),
-        'valorReconhecidoComOH': converter_decimal128_para_float(correcao.get('valorReconhecidoComOH', 0)),
-        'overHeadTotal': converter_decimal128_para_float(correcao.get('overHeadTotal', 0)),
-        'diferencaValor': converter_decimal128_para_float(correcao.get('diferencaValor', 0)),
-        'valorRecuperado': converter_decimal128_para_float(correcao.get('valorRecuperado', 0)),
-        'valorRecuperadoTotal': converter_decimal128_para_float(correcao.get('valorRecuperadoTotal', 0)),
-        'taxaCorrecao': converter_decimal128_para_float(correcao.get('taxaCorrecao', 0)),
-        'igpmAcumulado': converter_decimal128_para_float(correcao.get('igpmAcumulado', 0)),
-        'igpmAcumuladoReais': converter_decimal128_para_float(correcao.get('igpmAcumuladoReais', 0)),
-        'valorLancamentoTotal': converter_decimal128_para_float(correcao.get('valorLancamentoTotal', 0)),
-        'valorNaoReconhecido': converter_decimal128_para_float(correcao.get('valorNaoReconhecido', 0)),
-        'valorReconhecivel': converter_decimal128_para_float(correcao.get('valorReconhecivel', 0)),
-        'valorNaoPassivelRecuperacao': converter_decimal128_para_float(correcao.get('valorNaoPassivelRecuperacao', 0))
-    }
-    
-    # Extrair detalhes com tratamento seguro
-    detalhes = {
-        'subTipo': correcao.get('subTipo', ''),
-        'ativo': correcao.get('ativo', True),
-        'observacao': correcao.get('observacao', ''),
-        'transferencia': correcao.get('transferencia', False),
-        'quantidadeLancamento': correcao.get('quantidadeLancamento', 0),
-        'contrato': correcao.get('contrato', ''),
-        'campo': correcao.get('campo', ''),
-        'faseRemessa': correcao.get('faseRemessa', '')
-    }
-    
-    return {
-        'tipo': tipo,
-        'sequencia': sequencia,
-        'dataCorrecao': correcao.get('dataCorrecao'),
-        'dataCorrecaoFormatada': formatar_data_brasileira(correcao.get('dataCorrecao')),
-        'dataCriacaoCorrecao': formatar_data_brasileira(correcao.get('dataCriacaoCorrecao')),
-        'titulo': config['titulo'],
-        'descricao': descricao,
-        'valores': valores,
-        'detalhes': detalhes,
-        'icone': config['icone'],
-        'cor': config['cor']
-    }
+    # Compatibilidade: delega para o serviço
+    return portal_service.processar_evento_correcao(correcao, sequencia)
 
 def gerar_descricao_evento(tipo, correcao):
-    """Gera descrição do evento baseada no tipo"""
-    try:
-        if tipo in ['IPCA', 'IGPM']:
-            taxa = converter_decimal128_para_float(correcao.get('taxaCorrecao', 0))
-            if taxa > 0:
-                return f"Aplicação de correção monetária {tipo} - Taxa: {taxa:.4f}%"
-            else:
-                return f"Correção monetária {tipo} aplicada"
-        elif tipo == 'RECUPERACAO':
-            valor_recuperado = converter_decimal128_para_float(correcao.get('valorRecuperado', 0))
-            valor_recuperado_total = converter_decimal128_para_float(correcao.get('valorRecuperadoTotal', 0))
-            if valor_recuperado > 0:
-                return f"Recuperação de valor: R$ {valor_recuperado:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-            elif valor_recuperado_total > 0:
-                return f"Recuperação total: R$ {valor_recuperado_total:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-            else:
-                return "Recuperação de valor realizada"
-        elif tipo == 'INVALIDACAO_RECONHECIMENTO_PARCIAL':
-            return "Invalidação parcial do reconhecimento com transferência de valores"
-        elif tipo == 'RETIFICACAO':
-            return "Ajuste manual realizado nos valores da CCO"
-        else:
-            return f"Evento do tipo {tipo} aplicado à CCO"
-    except Exception as e:
-        return f"Evento do tipo {tipo}"
+    # Compatibilidade: delega para o serviço
+    return portal_service.gerar_descricao_evento(tipo, correcao)
     
 @portal_bp.route('/pesquisa-ccos')
 def pesquisa_ccos():
@@ -989,63 +514,7 @@ def api_pesquisar_ccos():
             if dados.get('flgRecuperado') is not None:
                 filtro_mongo['flgRecuperado'] = dados['flgRecuperado']
         
-        # Projeção para trazer apenas dados resumidos
-        projecao = {
-            '_id': 1,
-            'contratoCpp': 1,
-            'campo': 1,
-            'remessa': 1,
-            'remessaExposicao': 1,
-            'faseRemessa': 1,
-            'exercicio': 1,
-            'periodo': 1,
-            'mesAnoReferencia': 1,
-            'mesReconhecimento': 1,
-            'anoReconhecimento': 1,
-            'origemDosGastos': 1,
-            'flgRecuperado': 1,
-            'dataLancamento': 1,
-            'dataReconhecimento': 1,
-            'quantidadeLancamento': 1,
-            'valorReconhecido': 1,
-            'valorReconhecidoComOH': 1,
-            'overHeadTotal': 1,
-            'correcoesMonetarias': {'$slice': -1}  # Apenas a última correção
-        }
-        
-        # Executar consulta
-        ccos = list(db.conta_custo_oleo_entity.find(filtro_mongo, projecao).limit(500))
-        
-        # Processar resultados
-        resultados = []
-        for cco in ccos:
-            # Extrair valores atuais (da última correção ou raiz)
-            valores_atuais = extrair_valores_resumidos_cco(cco)
-            
-            resultado = {
-                'id': cco['_id'],
-                'contratoCpp': cco.get('contratoCpp', ''),
-                'campo': cco.get('campo', ''),
-                'remessa': cco.get('remessa', 0),
-                'remessaExposicao': cco.get('remessaExposicao', 0),
-                'faseRemessa': cco.get('faseRemessa', ''),
-                'exercicio': cco.get('exercicio', 0),
-                'periodo': cco.get('periodo', 0),
-                'mesAnoReferencia': cco.get('mesAnoReferencia', ''),
-                'anoReconhecimento': cco.get('anoReconhecimento', 0),
-                'mesReconhecimento': cco.get('mesReconhecimento', 0),
-                'origemDosGastos': cco.get('origemDosGastos', ''),
-                'flgRecuperado': cco.get('flgRecuperado', False),
-                'dataLancamento': formatar_data_brasileira(cco.get('dataLancamento')),
-                'dataReconhecimento': formatar_data_brasileira(cco.get('dataReconhecimento')),
-                'quantidadeLancamento': cco.get('quantidadeLancamento', 0),
-                'valorReconhecido': valores_atuais['valorReconhecido'],
-                'valorReconhecidoComOH': valores_atuais['valorReconhecidoComOH'],
-                'overHeadTotal': valores_atuais['overHeadTotal'],
-                'temCorrecoes': len(cco.get('correcoesMonetarias', [])) > 0,
-                'ultimaAtualizacao': valores_atuais['ultimaAtualizacao']
-            }
-            resultados.append(resultado)
+        resultados = portal_service.pesquisar_ccos(filtro_mongo)
         
         return jsonify({
             'success': True,
@@ -1059,36 +528,15 @@ def api_pesquisar_ccos():
         return jsonify({'error': f'Erro interno: {str(e)}'}), 500
 
 def extrair_valores_resumidos_cco(cco_data):
-    """Extrai valores resumidos da CCO para listagem"""
-    valores = {
-        'valorReconhecido': 0,
-        'valorReconhecidoComOH': 0,
-        'overHeadTotal': 0,
-        'ultimaAtualizacao': ''
-    }
-    
-    # Se tem correções, usar a última
-    if 'correcoesMonetarias' in cco_data and cco_data['correcoesMonetarias']:
-        ultima_correcao = cco_data['correcoesMonetarias'][-1]
-        valores['valorReconhecido'] = converter_decimal128_para_float(ultima_correcao.get('valorReconhecido', 0))
-        valores['valorReconhecidoComOH'] = converter_decimal128_para_float(ultima_correcao.get('valorReconhecidoComOH', 0))
-        valores['overHeadTotal'] = converter_decimal128_para_float(ultima_correcao.get('overHeadTotal', 0))
-        valores['ultimaAtualizacao'] = formatar_data_simples(ultima_correcao.get('dataCorrecao') or ultima_correcao.get('dataCriacaoCorrecao'))
-    else:
-        # Usar valores da raiz
-        valores['valorReconhecido'] = converter_decimal128_para_float(cco_data.get('valorReconhecido', 0))
-        valores['valorReconhecidoComOH'] = converter_decimal128_para_float(cco_data.get('valorReconhecidoComOH', 0))
-        valores['overHeadTotal'] = converter_decimal128_para_float(cco_data.get('overHeadTotal', 0))
-        valores['ultimaAtualizacao'] = formatar_data_simples(cco_data.get('dataLancamento'))
-    
-    return valores
+    # Compatibilidade: delega para o serviço
+    return portal_service.extrair_valores_resumidos_cco(cco_data)
 
 @portal_bp.route('/api/contratos-disponiveis')
 def api_contratos_disponiveis():
     """API para listar contratos disponíveis"""
     try:
-        contratos = db.conta_custo_oleo_entity.distinct('contratoCpp')
-        return jsonify({'contratos': sorted([c for c in contratos if c])})
+        contratos = portal_service.listar_contratos()
+        return jsonify({'contratos': contratos})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -1096,7 +544,7 @@ def api_contratos_disponiveis():
 def api_campos_por_contrato(contrato):
     """API para listar campos por contrato"""
     try:
-        campos = db.conta_custo_oleo_entity.distinct('campo', {'contratoCpp': contrato})
-        return jsonify({'campos': sorted([c for c in campos if c])})
+        campos = portal_service.listar_campos_por_contrato(contrato)
+        return jsonify({'campos': campos})
     except Exception as e:
         return jsonify({'error': str(e)}), 500

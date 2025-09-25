@@ -23,8 +23,9 @@ def create_app():
         from app.routes.portal_ui import portal_bp
         from app.routes.analise_ui import analise_bp
         from app.routes.recalculo_ui import recalculo_bp
+        from app.routes.ipca_correcao_routes import ipca_correcao_bp
         
-        blueprints = [portal_bp, analise_bp, recalculo_bp]
+        blueprints = [portal_bp, analise_bp, recalculo_bp, ipca_correcao_bp]
         for bp in blueprints:
             app.register_blueprint(bp)
     

@@ -13,6 +13,16 @@ from app.services.remessa_service import RemessaAnaliseService
 from app.utils.converters import formatar_data_brasileira
 from app.utils.json_encoder import json_response
 from app.utils.cache_utils import CacheManager
+from app.services.analise_helpers import (
+    calcular_estatisticas_gastos,
+    obter_top_classificacoes,
+    obter_top_responsaveis,
+    obter_distribuicao_status,
+    obter_moedas_utilizadas,
+    processar_dados_dashboard,
+    gerar_csv_analise,
+    gerar_recomendacao_analise,
+)
 
 analise_bp = Blueprint('analise_ui', __name__)
 
@@ -261,182 +271,7 @@ def api_salvar_analise_sessao():
         return json_response({'success': False, 'error': str(e)}, 500)
     
 
-# Funções auxiliares
-def calcular_estatisticas_gastos(gastos):
-    """Calcula estatísticas detalhadas dos gastos"""
-    from app.utils.converters import converter_decimal128_para_float
-    
-    total_gastos = len(gastos)
-    gastos_reconhecidos = len([g for g in gastos if g.get('reconhecido') == 'SIM'])
-    
-    valor_total = sum(converter_decimal128_para_float(g.get('valorMoedaOBJReal', 0)) for g in gastos)
-    valor_reconhecido = sum(converter_decimal128_para_float(g.get('valorReconhecido', 0)) 
-                           for g in gastos if g.get('reconhecido') == 'SIM')
-    valor_nao_reconhecido = sum(converter_decimal128_para_float(g.get('valorNaoReconhecido', 0)) for g in gastos)
-    
-    # Estatísticas por tipo de reconhecimento
-    reconhecimento_tipos = {}
-    status_tipos = {}
-    
-    for gasto in gastos:
-        rec_tipo = gasto.get('reconhecimentoTipo', 'INDEFINIDO')
-        reconhecimento_tipos[rec_tipo] = reconhecimento_tipos.get(rec_tipo, 0) + 1
-        
-        status = gasto.get('statusGastoTipo', 'INDEFINIDO')
-        status_tipos[status] = status_tipos.get(status, 0) + 1
-    
-    return {
-        'totalGastos': total_gastos,
-        'gastosReconhecidos': gastos_reconhecidos,
-        'gastosPendentes': total_gastos - gastos_reconhecidos,
-        'taxaReconhecimento': (gastos_reconhecidos / total_gastos * 100) if total_gastos > 0 else 0,
-        'valorTotal': valor_total,
-        'valorReconhecido': valor_reconhecido,
-        'valorNaoReconhecido': valor_nao_reconhecido,
-        'percentualValorReconhecido': (valor_reconhecido / valor_total * 100) if valor_total > 0 else 0,
-        'reconhecimentoTipos': reconhecimento_tipos,
-        'statusTipos': status_tipos
-    }
-
-def obter_top_classificacoes(gastos, top=5):
-    """Obtém top classificações dos gastos"""
-    from collections import Counter
-    
-    classificacoes = [g.get('classificacaoGastoTipo', 'INDEFINIDO') for g in gastos if g.get('classificacaoGastoTipo')]
-    counter = Counter(classificacoes)
-    
-    return [{'classificacao': k, 'quantidade': v} for k, v in counter.most_common(top)]
-
-def obter_top_responsaveis(gastos, top=5):
-    """Obtém top responsáveis pelos gastos"""
-    from collections import Counter
-    
-    responsaveis = [g.get('responsavel', 'INDEFINIDO') for g in gastos if g.get('responsavel')]
-    counter = Counter(responsaveis)
-    
-    return [{'responsavel': k, 'quantidade': v} for k, v in counter.most_common(top)]
-
-def obter_distribuicao_status(gastos):
-    """Obtém distribuição dos gastos por status"""
-    from collections import Counter
-    
-    status = [g.get('statusGastoTipo', 'INDEFINIDO') for g in gastos]
-    counter = Counter(status)
-    
-    return [{'status': k, 'quantidade': v, 'percentual': v/len(gastos)*100} for k, v in counter.items()]
-
-def obter_moedas_utilizadas(gastos):
-    """Obtém lista de moedas utilizadas"""
-    from collections import Counter
-    
-    moedas = [g.get('moedaTransacao', 'INDEFINIDO') for g in gastos if g.get('moedaTransacao')]
-    counter = Counter(moedas)
-    
-    return [{'moeda': k, 'quantidade': v} for k, v in counter.items()]
-
-def processar_dados_dashboard(resultado_analise):
-    """Processa dados para dashboard personalizado"""
-    return {
-        'resumo': {
-            'totalRemessas': resultado_analise['estatisticas']['totalRemessas'],
-            'totalFases': resultado_analise['estatisticas']['totalFasesEncontradas'],
-            'ccosEncontradas': resultado_analise['estatisticas']['totalCCOsEncontradas'],
-            'taxaEncontro': (resultado_analise['estatisticas']['totalCCOsEncontradas'] / 
-                           resultado_analise['estatisticas']['totalFasesEncontradas'] * 100) if resultado_analise['estatisticas']['totalFasesEncontradas'] > 0 else 0
-        },
-        'distribuicaoFases': resultado_analise['estatisticas']['fasesPorTipo'],
-        'timeline': extrair_timeline_dados(resultado_analise['remessasAnalisadas']),
-        'consolidacao': resultado_analise['estatisticas'].get('consolidacaoGeral', {})
-    }
-
-def extrair_timeline_dados(remessas_analisadas):
-    """Extrai dados para timeline do dashboard"""
-    timeline_data = []
-    
-    for remessa in remessas_analisadas:
-        for fase in remessa['fasesComReconhecimento']:
-            if fase.get('dataReconhecimento'):
-                timeline_data.append({
-                    'data': fase['dataReconhecimento'],
-                    'remessa': remessa['remessa'],
-                    'fase': fase['fase'],
-                    'contrato': remessa['contratoCPP'],
-                    'campo': remessa['campo'],
-                    'cco_status': fase.get('cco', {}).get('statusCCO', 'SEM_DADOS')
-                })
-    
-    # Ordenar por data
-    timeline_data.sort(key=lambda x: x['data'])
-    
-    return timeline_data
-
-def gerar_csv_analise(resultado_analise, formato='detalhado'):
-    """Gera conteúdo CSV da análise"""
-    import csv
-    import io
-    
-    output = io.StringIO()
-    
-    if formato == 'resumido':
-        # CSV resumido - apenas estatísticas principais
-        writer = csv.writer(output, delimiter=';')
-        writer.writerow(['Métrica', 'Valor'])
-        writer.writerow(['Total de Remessas', resultado_analise['estatisticas']['totalRemessas']])
-        writer.writerow(['Total de Fases', resultado_analise['estatisticas']['totalFasesEncontradas']])
-        writer.writerow(['CCOs Encontradas', resultado_analise['estatisticas']['totalCCOsEncontradas']])
-        writer.writerow(['CCOs Não Encontradas', resultado_analise['estatisticas']['totalCCOsNaoEncontradas']])
-        writer.writerow(['CCOs Duplicadas', resultado_analise['estatisticas']['totalCCOsDuplicadas']])
-        
-        # Distribuição por fase
-        writer.writerow([])
-        writer.writerow(['Fase', 'Quantidade'])
-        for fase, count in resultado_analise['estatisticas']['fasesPorTipo'].items():
-            writer.writerow([fase, count])
-            
-    else:
-        # CSV detalhado - linha por fase
-        writer = csv.writer(output, delimiter=';')
-        headers = [
-            'Remessa ID', 'Contrato', 'Campo', 'Remessa', 'Exercicio', 'Periodo',
-            'Mes Ano Ref', 'Fase', 'Data Reconhecimento', 'CCO Status', 'CCO ID',
-            'Valor Reconhecido Fase', 'Valor CCO', 'Overhead Total', 'Observacao'
-        ]
-        writer.writerow(headers)
-        
-        for remessa in resultado_analise['remessasAnalisadas']:
-            for fase in remessa['fasesComReconhecimento']:
-                cco = fase.get('cco', {})
-                row = [
-                    remessa['id'],
-                    remessa['contratoCPP'],
-                    remessa['campo'],
-                    remessa['remessa'],
-                    remessa['exercicio'],
-                    remessa['periodo'],
-                    remessa['mesAnoReferencia'],
-                    fase['fase'],
-                    fase.get('dataReconhecimento', ''),
-                    cco.get('statusCCO', 'SEM_DADOS'),
-                    cco.get('id', ''),
-                    fase.get('valorReconhecido', 0),
-                    cco.get('valorReconhecidoComOH', 0),
-                    cco.get('overHeadTotal', 0),
-                    cco.get('observacao', '')
-                ]
-                writer.writerow(row)
-    
-    return output.getvalue()
-
-def gerar_recomendacao_analise(total_remessas, remessas_com_reconhecimento):
-    """Gera recomendação baseada no volume de dados"""
-    if remessas_com_reconhecimento == 0:
-        return "AVISO: Nenhuma remessa com reconhecimento encontrada. Verifique os filtros aplicados."
-    elif remessas_com_reconhecimento > 1000:
-        return "ATENÇÃO: Volume alto de dados. Considere refinar os filtros para melhor performance."
-    elif remessas_com_reconhecimento > 500:
-        return "Volume moderado de dados. A análise pode levar alguns minutos."
-    else:
-        return "Volume adequado para análise rápida."
+# Funções auxiliares foram extraídas para app/services/analise_helpers.py
 
 @analise_bp.route('/analise-remessas')
 def analise_remessas():

@@ -166,7 +166,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Carregar dados iniciais
     carregarContratosAnalise();
     carregarContratosPesquisa();
-    carregarEtapas();
+    //carregarEtapas();
 
     const formPesquisa = document.getElementById('formPesquisaCcos');
     const loadingPesquisa = document.getElementById('loadingPesquisa');
@@ -293,15 +293,19 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function carregarContratosAnalise() {
-    fetch('/api/contratos-remessas')
+    fetch('/api/contratos-disponiveis')
         .then(response => response.json())
         .then(data => {
-            if (data.success) {
+            console.log('carregarContratosAnalise --> ' + data);
+            if (data) {
                 const select = document.getElementById('contratoCpp');
                 select.innerHTML = '<option value="">Selecione...</option>';
                 data.contratos.forEach(contrato => {
+                    console.log('carregarContratosAnalise contrato --> ' + contrato);
                     select.innerHTML += `<option value="${contrato}">${contrato}</option>`;
                 });
+            }else{
+                console.log('carregarContratosAnalise data error --> ' + data.error);
             }
         })
         .catch(error => console.error('Erro ao carregar contratos:', error));
@@ -309,13 +313,15 @@ function carregarContratosAnalise() {
 
 
 function carregarContratosPesquisa() {
-    fetch('/api/contratos-remessas')
+    fetch('/api/contratos-disponiveis')
         .then(response => response.json())
         .then(data => {
-            if (data.success) {
+            console.log('carregarContratosPesquisa --> ' + data);
+            if (data) {
                 const select = document.getElementById('selectContratoPesquisa');
                 select.innerHTML = '<option value="">Selecione...</option>';
                 data.contratos.forEach(contrato => {
+                    console.log('carregarContratosPesquisa contrato --> ' + contrato);
                     select.innerHTML += `<option value="${contrato}">${contrato}</option>`;
                 });
             }

@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Correção IPCA/IGPM</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .main-content {
+            padding: 40px;
+        }
+        
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 40px;
+        }
+        
+        .step {
+            display: flex;
+            align-items: center;
+            margin: 0 20px;
+        }
+        
+        .step-number {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #ecf0f1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 10px;
+            transition: all 0.3s ease;
+        }
+        
+        .step.active .step-number {
+            background: #3498db;
+            color: white;
+        }
+        
+        .step.completed .step-number {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border-left: 4px solid #3498db;
+        }
+        
+        .section h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+        
+        .input-group {
+            margin-bottom: 25px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #34495e;
+        }
+        
+        .input-group input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+        
+        .input-group input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-right: 10px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(52, 152, 219, 0.3);
+        }
+        
+        .btn:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+        }
+        
+        .btn-warning {
+            background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        }
+        
+        .results-section {
+            display: none;
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            border: 2px solid #e1e8ed;
+        }
+        
+        .alert {
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .alert-info {
+            background: #d5edf8;
+            border-left: 4px solid #3498db;
+            color: #2c5282;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            border-left: 4px solid #27ae60;
+            color: #155724;
+        }
+        
+        .alert-warning {
+            background: #fff3cd;
+            border-left: 4px solid #f39c12;
+            color: #856404;
+        }
+        
+        .alert-danger {
+            background: #f8d7da;
+            border-left: 4px solid #e74c3c;
+            color: #721c24;
+        }
+        
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        .table th, .table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #e1e8ed;
+        }
+        
+        .table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .table tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .status-gap {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .status-correction {
+            background: #d5edf8;
+            color: #2c5282;
+        }
+        
+        .status-compensation {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .financial-impact {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .impact-card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #e1e8ed;
+            text-align: center;
+        }
+        
+        .impact-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+        
+        .impact-label {
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔧 Sistema de Correção IPCA/IGPM</h1>
+            <p>Análise inteligente e correção de gaps em CCOs</p>
+        </div>
+        
+        <div class="main-content">
+            <!-- Indicador de Etapas -->
+            <div class="step-indicator">
+                <div class="step active" id="step-1">
+                    <div class="step-number">1</div>
+                    <span>Análise</span>
+                </div>
+                <div class="step" id="step-2">
+                    <div class="step-number">2</div>
+                    <span>Preview</span>
+                </div>
+                <div class="step" id="step-3">
+                    <div class="step-number">3</div>
+                    <span>Aprovação</span>
+                </div>
+                <div class="step" id="step-4">
+                    <div class="step-number">4</div>
+                    <span>Aplicação</span>
+                </div>
+            </div>
+            
+            <!-- Seção 1: Análise de CCO -->
+            <div class="section" id="analysis-section">
+                <h2>📊 Análise de CCO</h2>
+                
+                <div class="input-group">
+                    <label for="cco-id">ID da CCO:</label>
+                    <input type="text" id="cco-id" placeholder="Digite o ID da CCO (ex: 7Z0InO8IRQeeFVKHFiPn6gAAAAA)">
+                </div>
+                
+                <div class="input-group">
+                    <label for="user-id">Usuário:</label>
+                    <input type="text" id="user-id" placeholder="Seu ID de usuário" value="thiago.paraizo@scalait.com">
+                </div>
+                
+                <button class="btn" onclick="iniciarAnalise()">🔍 Analisar CCO</button>
+            </div>
+            
+            <!-- Loading -->
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Analisando CCO e identificando gaps...</p>
+            </div>
+            
+            <!-- Seção 2: Resultados da Análise -->
+            <div class="results-section" id="results-section">
+                <h2>📋 Resultados da Análise</h2>
+                
+                <div id="analysis-alerts"></div>
+                
+                <div id="scenario-info"></div>
+                
+                <div id="problems-summary"></div>
+                
+                <div id="financial-impact"></div>
+                
+                <div style="margin-top: 30px;">
+                    <button class="btn btn-success" onclick="gerarPropostas()" id="btn-generate-proposals" disabled>
+                        ⚡ Gerar Propostas de Correção
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Seção 3: Propostas de Correção -->
+            <div class="results-section" id="proposals-section">
+                <h2>💡 Propostas de Correção</h2>
+                
+                <div id="proposals-content"></div>
+                
+                <div style="margin-top: 30px;">
+                    <button class="btn btn-warning" onclick="aprovarCorrecoes()" id="btn-approve" disabled>
+                        ✅ Aprovar Correções Selecionadas
+                    </button>
+                    <button class="btn" onclick="voltarAnalise()">🔙 Voltar para Análise</button>
+                </div>
+            </div>
+            
+            <!-- Seção 4: Aplicação Final -->
+            <div class="results-section" id="application-section">
+                <h2>🚀 Aplicação das Correções</h2>
+                
+                <div id="application-content"></div>
+                
+                <div style="margin-top: 30px;">
+                    <button class="btn btn-success" onclick="aplicarCorrecoes()" id="btn-apply" disabled>
+                        🎯 Aplicar Correções
+                    </button>
+                    <button class="btn" onclick="novaAnalise()">🔄 Nova Análise</button>
+                    <button class="btn" onclick="document.getElementById('btn-apply').style='display: block'">    🔁</button>
+                </div>
+            </div>
+            <div class="section" id="ipca-vigente-section" style="display: block;">
+                <h2>🎯 Correção IPCA Ano Vigente</h2>
+                <div class="input-group">
+                    <label for="cco-ipca-vigente">ID da CCO:</label>
+                    <input type="text" id="cco-ipca-vigente" placeholder="Digite o ID da CCO">
+                </div>
+                <button class="btn" onclick="avaliarIPCAVigente()">🔍 Avaliar Aplicabilidade</button>
+                <div id="resultado-ipca-vigente"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Estado da aplicação
+        let currentSession = null;
+        let analysisData = null;
+        let proposalsData = null;
+        
+        async function callBackend(endpoint, data) {
+            const endpoints = {
+                'iniciar_analise': '/ipca-correcao/api/iniciar-analise',
+                'gerar_propostas': '/ipca-correcao/api/gerar-propostas',
+                'aprovar_correcoes': '/ipca-correcao/api/aprovar-correcoes',
+                'aplicar_correcoes': '/ipca-correcao/api/aplicar-correcoes',
+                'avaliar_ipca_vigente': '/ipca-correcao/api/avaliar-ipca-vigente'
+            };
+            
+            const url = endpoints[endpoint];
+            if (!url) {
+                throw new Error(`Endpoint ${endpoint} não encontrado`);
+            }
+            
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            return await response.json();
+        }
+        
+        async function iniciarAnalise() {
+            const ccoId = document.getElementById('cco-id').value.trim();
+            const userId = document.getElementById('user-id').value.trim();
+            
+            if (!ccoId) {
+                alert('Por favor, digite o ID da CCO');
+                return;
+            }
+            
+            // Mostrar loading
+            document.getElementById('analysis-section').style.display = 'none';
+            document.getElementById('loading').style.display = 'block';
+            
+            try {
+                const response = await callBackend('iniciar_analise', {
+                    cco_id: ccoId,
+                    user_id: userId
+                });
+                
+                if (response.success) {
+                    currentSession = response.session_id;
+                    analysisData = response;
+                    mostrarResultadosAnalise(response);
+                    updateStepIndicator(2);
+                } else {
+                    throw new Error(response.error || 'Erro na análise');
+                }
+            } catch (error) {
+                alert('Erro ao analisar CCO: ' + error.message);
+                document.getElementById('analysis-section').style.display = 'block';
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+        
+        function mostrarResultadosAnalise(data) {
+            const resultsSection = document.getElementById('results-section');
+            
+            // Mostrar alertas
+            const alertsDiv = document.getElementById('analysis-alerts');
+            alertsDiv.innerHTML = `
+                <div class="alert alert-success">
+                    ✅ Análise concluída com sucesso! Sessão: ${data.session_id}
+                </div>
+            `;
+            
+            // Mostrar informações do cenário
+            const scenarioDiv = document.getElementById('scenario-info');
+            const scenarioDescriptions = {
+                'CENARIO_0': 'Gap Simples - CCO sem correção no aniversário',
+                'CENARIO_1': 'Gap com Correção Posterior - Necessário recálculo',
+                'CENARIO_2': 'Gap com Recuperação - Necessário compensação',
+                'CENARIO_COMPLEXO': 'Cenário Complexo - Análise detalhada necessária'
+            };
+            
+            scenarioDiv.innerHTML = `
+                <div class="alert alert-info">
+                    <strong>📋 Cenário Detectado:</strong> ${scenarioDescriptions[data.scenario_detected] || data.scenario_detected}
+                </div>
+            `;
+            
+            // Mostrar resumo dos problemas
+            const problemsDiv = document.getElementById('problems-summary');
+            problemsDiv.innerHTML = `
+                <h3>🔍 Problemas Identificados</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px; margin: 20px 0;">
+                    <div class="impact-card">
+                        <div class="impact-value">${data.gaps_count}</div>
+                        <div class="impact-label">Gaps de Correção</div>
+                    </div>
+                    <div class="impact-card">
+                        <div class="impact-value">${data.corrections_fora_count}</div>
+                        <div class="impact-label">Correções Fora do Prazo</div>
+                    </div>
+                    <div class="impact-card">
+                        <div class="impact-value">${data.duplicates_count}</div>
+                        <div class="impact-label">Correções Duplicadas (IPCA/IGPM)</div>
+                    </div>
+                </div>
+            `;
+            
+            // Habilitar botão de gerar propostas
+            document.getElementById('btn-generate-proposals').disabled = false;
+            
+            resultsSection.style.display = 'block';
+        }
+        
+        async function gerarPropostas() {
+            if (!currentSession) {
+                alert('Sessão inválida');
+                return;
+            }
+            
+            // Mostrar loading
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('results-section').style.display = 'none';
+            
+            try {
+                const response = await callBackend('gerar_propostas', {
+                    session_id: currentSession
+                });
+                
+                if (response.success) {
+                    proposalsData = response;
+                    mostrarPropostas(response);
+                    updateStepIndicator(3);
+                } else {
+                    throw new Error(response.error || 'Erro ao gerar propostas');
+                }
+            } catch (error) {
+                alert('Erro ao gerar propostas: ' + error.message);
+                document.getElementById('results-section').style.display = 'block';
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+        
+        function mostrarPropostas(data) {
+            const proposalsSection = document.getElementById('proposals-section');
+            const proposalsContent = document.getElementById('proposals-content');
+            
+            var errorMessage = null;
+
+            // Mostrar impacto financeiro
+            let impactHtml = `
+                <div class="alert alert-info">
+                    <strong>💰 Impacto Financeiro Total:</strong> R$ ${data.financial_impact.total_impact.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </div>
+                
+                <div class="financial-impact">
+                    <div class="impact-card">
+                        <div class="impact-value">R$ ${data.financial_impact.total_additions.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                        <div class="impact-label">Adições IPCA</div>
+                    </div>
+                    <div class="impact-card">
+                        <div class="impact-value">R$ ${data.financial_impact.total_updates.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                        <div class="impact-label">Atualizações</div>
+                    </div>
+                    <div class="impact-card">
+                        <div class="impact-value">${data.proposals_count}</div>
+                        <div class="impact-label">Correções Propostas</div>
+                    </div>
+                </div>
+            `;
+            
+            // Mostrar tabela de propostas
+            impactHtml += `
+                <h3>📝 Propostas de Correção</h3>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>✓</th>
+                            <th>Tipo</th>
+                            <th>Taxa</th>
+                            <th>Valor Atual <div class="tooltip">valorReconhecidoComOhOriginal</div></th>
+                            <th>Valor Proposto <div class="tooltip">valorReconhecidoComOh</div></th>
+                            <th>Impacto</th>
+                            <th>Descrição</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            data.proposals.forEach(proposal => {
+                
+                if (proposal && (proposal.taxa_aplicada === '0.00' || proposal.taxa_referencia === 0)) {
+                    errorMessage = 'Taxa de IPCA inválida';
+                }
+                
+                const typeLabels = {
+                    'IPCA_ADDITION': 'Adicionar IPCA',
+                    'IPCA_UPDATE': 'Atualizar IPCA',
+                    'COMPENSATION': 'Retificação de Compensação',
+                    'REACTIVATION': 'Disponibilizar Recuperação',
+                    'DUPLICATA_REMOVAL': 'Remoção de Duplicata IPCA/IGPM',
+                    'DUPLICATA_ADJUSTMENT': 'Ajuste de Duplicata IPCA/IGPM',
+                    'CORRECTION_DATE_CHANGE': 'Alteração de Data da Correção (Inversão Ordem da Ultima Retificação)'
+                };
+                
+                impactHtml += `
+                    <tr>
+                        <td>
+                            <input type="checkbox" id="proposal_${proposal.correction_id}" 
+                                value="${proposal.correction_id}" checked 
+                                onchange="updateApprovalButton()">
+                        </td>
+                        <td><span class="status-badge status-correction">${typeLabels[proposal.type] || proposal.type}</span></td>
+                        <td>${['IPCA_ADDITION', 'IPCA_UPDATE'].includes(proposal.type) ? 
+                            `${proposal.taxa_aplicada} (${proposal.taxa_referencia})` : '-'}</td>
+                        <td>${['IPCA_ADDITION', 'IPCA_UPDATE', 'COMPENSATION'].includes(proposal.type) ? 
+                            'R$ ' + proposal.current_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '-'}</td>
+                        <td>${['IPCA_ADDITION', 'IPCA_UPDATE', 'COMPENSATION'].includes(proposal.type) ? 
+                            'R$ ' + proposal.proposed_value.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '-'}</td>
+                        <td>${proposal.type !== 'REACTIVATION' ? 
+                            'R$ ' + proposal.impact.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '-'}</td>
+                        <td>${proposal.description}</td>
+                    </tr>
+                `;
+            });
+            
+            impactHtml += `
+                    </tbody>
+                </table>
+            `;
+            
+            proposalsContent.innerHTML = impactHtml;
+            
+            // Habilitar botão de aprovação
+            updateApprovalButton(errorMessage);
+            
+            proposalsSection.style.display = 'block';
+        }
+        
+        function updateApprovalButton(errorMessage) {
+            
+
+            const checkboxes = document.querySelectorAll('input[type="checkbox"][id^="proposal_"]');
+            const checkedCount = Array.from(checkboxes).filter(cb => cb.checked).length;
+            
+            const approveBtn = document.getElementById('btn-approve');
+            approveBtn.disabled = checkedCount === 0 || errorMessage;
+            approveBtn.textContent = `✅ Aprovar ${checkedCount} Correção(ões) Selecionada(s)`;
+
+            if (errorMessage){
+                alert(errorMessage);
+            }
+                
+        }
+        
+        
+        async function aprovarCorrecoes() {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"][id^="proposal_"]:checked');
+            const selectedIds = Array.from(checkboxes).map(cb => cb.value);
+            
+            if (selectedIds.length === 0) {
+                alert('Selecione pelo menos uma correção');
+                return;
+            }
+            
+            // Mostrar loading
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('proposals-section').style.display = 'none';
+            
+            try {
+                const response = await callBackend('aprovar_correcoes', {
+                    session_id: currentSession,
+                    corrections_approved: selectedIds
+                });
+                
+                if (response.success) {
+                    mostrarAplicacao(response, selectedIds);
+                    updateStepIndicator(4);
+                } else {
+                    throw new Error(response.error || 'Erro ao aprovar correções');
+                }
+            } catch (error) {
+                alert('Erro ao aprovar correções: ' + error.message);
+                document.getElementById('proposals-section').style.display = 'block';
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+        
+        function mostrarAplicacao(data, selectedIds) {
+            const applicationSection = document.getElementById('application-section');
+            const applicationContent = document.getElementById('application-content');
+            
+            // Filtrar propostas aprovadas
+            const approvedProposals = data.final_preview.approved_corrections || [];  //proposalsData.proposals.filter(p => selectedIds.includes(p.correction_id));
+            const totalImpact =  data.final_preview.total_financial_impact || 0;// approvedProposals.reduce((sum, p) => sum + p.impact, 0);
+            
+            let content = `
+                <div class="alert alert-success">
+                    ✅ ${selectedIds.length} correção(ões) aprovada(s) e pronta(s) para aplicação
+                </div>
+                
+                <div class="alert alert-warning">
+                    ⚠️ <strong>Atenção:</strong> As correções serão aplicadas permanentemente na CCO. 
+                    Esta ação não pode ser desfeita automaticamente.
+                </div>
+                
+                <h3>📋 Resumo Final</h3>
+                <div class="financial-impact">
+                    <div class="impact-card">
+                        <div class="impact-value">${selectedIds.length}</div>
+                        <div class="impact-label">Correções Aprovadas</div>
+                    </div>
+                    <div class="impact-card">
+                        <div class="impact-value">R$ ${totalImpact.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                        <div class="impact-label">Impacto Total</div>
+                    </div>
+                    <div class="impact-card">
+                        <div class="impact-value">< 1 min</div>
+                        <div class="impact-label">Tempo Estimado</div>
+                    </div>
+                </div>
+                
+                <h3>🔧 Correções que serão aplicadas:</h3>
+                <ul style="margin: 20px 0; padding-left: 20px;">
+            `;
+            
+            approvedProposals.forEach(proposal => {
+                content += `
+                    <li style="margin-bottom: 10px;">
+                        <strong>${proposal.description}</strong><br>
+                        <small style="color: #7f8c8d;">
+                            Período: ${proposal.target_period} | 
+                            Impacto: R$ ${proposal.impact.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </small>
+                    </li>
+                `;
+            });
+            
+            content += '</ul>';
+            
+            applicationContent.innerHTML = content;
+            
+            // Habilitar botão de aplicação
+            document.getElementById('btn-apply').disabled = false;
+            
+            applicationSection.style.display = 'block';
+        }
+        
+        async function aplicarCorrecoes() {
+            if (!confirm('Tem certeza que deseja aplicar as correções? Esta ação não pode ser desfeita.')) {
+                return;
+            }
+            
+            // Mostrar loading
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('application-section').style.display = 'none';
+            
+            try {
+                const response = await callBackend('aplicar_correcoes', {
+                    session_id: currentSession
+                });
+                
+                if (response.success) {
+                    mostrarSucesso(response);
+                    updateStepIndicator(4, true);
+                } else {
+                    throw new Error(response.error || 'Erro ao aplicar correções');
+                }
+            } catch (error) {
+                alert('Erro ao aplicar correções: ' + error.message);
+                document.getElementById('application-section').style.display = 'block';
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+        
+        function mostrarSucesso(data) {
+            const applicationContent = document.getElementById('application-content');
+            
+            applicationContent.innerHTML = `
+                <div class="alert alert-success">
+                    🎉 <strong>Correções aplicadas com sucesso!</strong><br>
+                    Aplicado em: ${new Date(data.applied_at).toLocaleString('pt-BR')}<br>
+                    Correções processadas: ${data.corrections_applied_count}
+                </div>
+                
+                <div style="text-align: center; margin: 40px 0;">
+                    <h3 style="color: #27ae60;">✅ Processo Concluído</h3>
+                    <p>As correções foram aplicadas na CCO e estão ativas no sistema.</p>
+                </div>
+            `;
+            
+            document.getElementById('application-section').style.display = 'block';
+            document.getElementById('btn-apply').style.display = 'none';
+        }
+        
+        function updateStepIndicator(activeStep, completed = false) {
+            for (let i = 1; i <= 4; i++) {
+                const step = document.getElementById(`step-${i}`);
+                step.classList.remove('active', 'completed');
+                
+                if (i < activeStep) {
+                    step.classList.add('completed');
+                } else if (i === activeStep && !completed) {
+                    step.classList.add('active');
+                } else if (i === activeStep && completed) {
+                    step.classList.add('completed');
+                }
+            }
+        }
+        
+        function voltarAnalise() {
+            document.getElementById('proposals-section').style.display = 'none';
+            document.getElementById('results-section').style.display = 'block';
+            updateStepIndicator(2);
+        }
+        
+        function novaAnalise() {
+            // Reset completo
+            currentSession = null;
+            analysisData = null;
+            proposalsData = null;
+            
+            // Limpar formulários
+            document.getElementById('cco-id').value = '';
+            
+            // Esconder todas as seções
+            document.getElementById('results-section').style.display = 'none';
+            document.getElementById('proposals-section').style.display = 'none';
+            document.getElementById('application-section').style.display = 'none';
+            
+            // Mostrar seção inicial
+            document.getElementById('analysis-section').style.display = 'block';
+            
+            // Reset indicador
+            updateStepIndicator(1);
+        }
+        
+        // Inicialização
+        document.addEventListener('DOMContentLoaded', function() {
+            // Exemplo de CCO ID para facilitar testes
+            document.getElementById('cco-id').value = '7Z0InO8IRQeeFVKHFiPn6gAAAAA';
+        });
+
+        async function avaliarIPCAVigente() {
+            const ccoId = document.getElementById('cco-ipca-vigente').value;
+            
+            try {
+                const response = await callBackend('avaliar_ipca_vigente', {
+                    cco_id: ccoId,
+                    user_id: 'user_demo'
+                });
+                
+                if (response.success && response.aplicavel) {
+                    // Usar fluxo existente
+                    currentSession = response.session_id;
+                    
+                    // Mostrar na seção de propostas
+                    document.getElementById('ipca-vigente-section').style.display = 'none';
+                    document.getElementById('proposals-section').style.display = 'block';
+                    
+                    mostrarPropostasIPCAVigente(response);
+                    updateStepIndicator(3);
+                    
+                } else {
+                    document.getElementById('resultado-ipca-vigente').innerHTML = 
+                        `<div class="alert alert-warning">Não aplicável: ${response.motivo || response.error}</div>`;
+                }
+                
+            } catch (error) {
+                document.getElementById('resultado-ipca-vigente').innerHTML = 
+                    `<div class="alert alert-danger">Erro: ${error.message}</div>`;
+            }
+        }
+
+        function mostrarPropostasIPCAVigente(response) {
+            // Validação inicial dos dados
+            if (!response || !response.propostas || !Array.isArray(response.propostas)) {
+                console.error('Dados inválidos recebidos:', response);
+                return;
+            }
+
+            const proposalsContent = document.getElementById('proposals-content');
+            if (!proposalsContent) {
+                console.error('Elemento proposals-content não encontrado');
+                return;
+            }
+
+            const p = response.propostas;
+            
+            let impactHtml = `
+                <div class="alert alert-info">
+                    <strong>Correção IPCA Ano Vigente</strong><br>
+                    Período: ${p[0]?.target_period || 'N/A'} | Taxa: ${p[0]?.taxa_aplicada || 'N/A'} (ref: ${p[0]?.taxa_referencia || 'N/A'})
+                </div>
+                
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>✓</th>
+                            <th>Tipo</th>
+                            <th>Taxa (ref)</th>
+                            <th>Valor Atual</th>
+                            <th>Valor Proposto</th>
+                            <th>Impacto</th>
+                            <th>Descrição</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            const typeLabels = {
+                'IPCA_ADDITION': 'Adicionar IPCA',
+                'IPCA_UPDATE': 'Atualizar IPCA',
+                'COMPENSATION': 'Retificação de Compensação',
+                'REACTIVATION': 'Disponibilizar Recuperação',
+                'DUPLICATA_REMOVAL': 'Remoção de Duplicata IPCA/IGPM',
+                'DUPLICATA_ADJUSTMENT': 'Ajuste de Duplicata IPCA/IGPM',
+                'CORRECTION_DATE_CHANGE': 'Alteração de Data da Correção (Inversão Ordem da Ultima Retificação)'
+            };
+
+            // Construir todas as linhas da tabela de uma vez
+            let tbody = '';
+            p.forEach((proposal, index) => {
+                // Valores com fallback para evitar erros
+                const valorAtual = proposal.current_value || 0;
+                const valorProposto = proposal.proposed_value || 0;
+                const impacto = proposal.impact || 0;
+                const taxaAplicada = proposal.taxa_aplicada || '-';
+                const periodoTaxa = proposal.periodo_taxa || '';
+                const description = proposal.description || 'Sem descrição';
+                const typeLabel = typeLabels[proposal.type] || proposal.type || 'Tipo não identificado';
+
+                const correctionId = proposal?.correction_id || 'ipca_vigente_temp';
+
+                // ID único para cada checkbox
+                const checkboxId = `proposal_ipca_vigente_${index}`;
+
+                if (proposal.type === 'IPCA_ADDITION') {
+                    tbody += `
+                        <tr>
+                            <td><input type="checkbox" 
+                                id="${checkboxId}" 
+                                value="${correctionId}" 
+                                checked 
+                                onchange="updateApprovalButton()"></td>
+                            <td><span class="status-badge status-correction">${typeLabel}</span></td>
+                            <td>${taxaAplicada}${periodoTaxa ? ` (${periodoTaxa})` : ''}</td>
+                            <td>R$ ${valorAtual.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                            <td>R$ ${valorProposto.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                            <td>R$ ${impacto.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</td>
+                            <td>${description}</td>
+                        </tr>
+                    `;
+                } else {
+                    tbody += `
+                        <tr>
+                            <td><input type="checkbox" 
+                                id="${checkboxId}" 
+                                value="${correctionId}" 
+                                checked 
+                                onchange="updateApprovalButton()"></td>
+                            <td><span class="status-badge status-correction">${typeLabel}</span></td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>${description}</td>
+                        </tr>
+                    `;
+                }
+            });
+
+            // Adicionar o corpo da tabela e fechar
+            impactHtml += tbody + `
+                    </tbody>
+                </table>
+            `;
+
+            proposalsContent.innerHTML = impactHtml;
+
+            // Habilitar botão de aprovação
+            const btnApprove = document.getElementById('btn-approve');
+            if (btnApprove) {
+                btnApprove.disabled = false;
+            }
+        }
+
+    </script>
+</body>
+</html>

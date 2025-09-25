@@ -745,7 +745,7 @@ class RecalculoService:
             'valorLancamentoTotal', 'valorNaoReconhecido', 'valorReconhecido',
             'valorReconhecivel', 'valorNaoPassivelRecuperacao', 'valorReconhecidoExploracao',
             'valorReconhecidoProducao', 'valorRecusado', 'overHeadExploracao',
-            'overHeadProducao', 'overHeadTotal', 'valorReconhecidoComOH'
+            'overHeadProducao', 'overHeadTotal', 'valorReconhecidoComOH','valorReconhecidoComOHOriginal','diferencaValor'
         ]
         
         # Campos que devem ser convertidos de NumberLong para int
