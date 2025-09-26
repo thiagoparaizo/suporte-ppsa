@@ -21,7 +21,7 @@ class IPCACorrectionEngine:
     Implementa lógica específica para cada cenário de correção
     """
     
-    def __init__(self, db_connection, gap_analyzer):
+    def __init__(self, db_connection, db_prd_connection, gap_analyzer):
         """
         Inicializa o motor de correção
         
@@ -30,6 +30,7 @@ class IPCACorrectionEngine:
             gap_analyzer: Instância do IPCAGapAnalyzer para reutilizar funções
         """
         self.db = db_connection
+        self.db_prd = db_prd_connection
         self.gap_analyzer = gap_analyzer
         
         logger.info("IPCACorrectionEngine inicializado")
@@ -72,7 +73,7 @@ class IPCACorrectionEngine:
     
             
             # Buscar CCO original
-            cco = self.db.conta_custo_oleo_entity.find_one({'_id': cco_id})
+            cco = self.db_prd.conta_custo_oleo_entity.find_one({'_id': cco_id})
             if not cco:
                 raise ValueError(f"CCO {cco_id} não encontrada")
             
@@ -94,13 +95,13 @@ class IPCACorrectionEngine:
             logger.error(f"Erro ao calcular correções Cenário 0 para CCO {cco_id}: {e}")
             raise
         
-    def aplicar_correcoes_cenario_0(self, cco_id: str, correcoes_aprovadas: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def aplicar_correcoes_cenario_0(self, session_id, cco_id: str, correcoes_aprovadas: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         Aplica correções do Cenário 0 na CCO real
         """
         try:
             # Buscar CCO original
-            cco_original = self.db.conta_custo_oleo_entity.find_one({'_id': cco_id})
+            cco_original = self.db_prd.conta_custo_oleo_entity.find_one({'_id': cco_id})
             if not cco_original:
                 raise ValueError(f"CCO {cco_id} não encontrada")
             
@@ -108,8 +109,8 @@ class IPCACorrectionEngine:
             for correcao in correcoes_aprovadas:
                 nova_correcao_monetaria = self._criar_correcao_monetaria_real(correcao, cco_original)
                 
-                # Inserir correção na CCO
-                self.db.conta_custo_oleo_entity.update_one(
+                # Inserir correção na CCO # TODO verificar coleção e banco de dados
+                self.db.conta_custo_oleo_corrigida_entity.update_one(
                     {'_id': cco_id},
                     {
                         '$push': {'correcoesMonetarias': nova_correcao_monetaria}
@@ -123,7 +124,7 @@ class IPCACorrectionEngine:
             logger.error(f"Erro ao aplicar correções Cenário 0: {e}")
             return {'success': False, 'error': str(e)}
 
-    def aplicar_correcoes_cenario_1(self, cco_id: str, correcoes_aprovadas: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def aplicar_correcoes_cenario_1(self, session_id, cco_id: str, correcoes_aprovadas: List[Dict[str, Any]]) -> Dict[str, Any]:
         
         """
         Aplica correções do Cenário 1 na CCO real
@@ -131,7 +132,7 @@ class IPCACorrectionEngine:
         """
         try:
             # Buscar CCO original
-            cco_original = self.db.conta_custo_oleo_entity.find_one({'_id': cco_id})
+            cco_original = self.db_prd.conta_custo_oleo_entity.find_one({'_id': cco_id})
             if not cco_original:
                 raise ValueError(f"CCO {cco_id} não encontrada")
             
@@ -158,8 +159,8 @@ class IPCACorrectionEngine:
                 cco_original, gaps_adicoes, correcoes_updates
             )
             
-            # Atualizar CCO com nova lista de correções
-            resultado = self.db.conta_custo_oleo_entity.update_one(
+            # Atualizar CCO com nova lista de correções # TODO verificar coleção e banco de dados
+            resultado = self.db.conta_custo_oleo_corrigida_entity.update_one(
                 {'_id': cco_id},
                 {'$set': {'correcoesMonetarias': nova_lista_correcoes}}
             )
@@ -277,7 +278,7 @@ class IPCACorrectionEngine:
         """
         try:
             # Buscar CCO atualizada
-            cco = self.db.conta_custo_oleo_entity.find_one({'_id': cco_id})
+            cco = self.db_prd.conta_custo_oleo_entity.find_one({'_id': cco_id})
             if not cco:
                 return 0.0
             
@@ -356,7 +357,7 @@ class IPCACorrectionEngine:
             correcoes_calculadas = []
             
             # Buscar CCO original
-            cco = self.db.conta_custo_oleo_entity.find_one({'_id': cco_id})
+            cco = self.db_prd.conta_custo_oleo_entity.find_one({'_id': cco_id})
             if not cco:
                 raise ValueError(f"CCO {cco_id} não encontrada")
             
@@ -539,7 +540,7 @@ class IPCACorrectionEngine:
             correcoes_calculadas = []
             
             # Buscar CCO original
-            cco = self.db.conta_custo_oleo_entity.find_one({'_id': cco_id})
+            cco = self.db_prd.conta_custo_oleo_entity.find_one({'_id': cco_id})
             if not cco:
                 raise ValueError(f"CCO {cco_id} não encontrada")
             
@@ -584,7 +585,7 @@ class IPCACorrectionEngine:
     
     def calcular_correcao_cenario_duplicatas(self, cco_id: str, duplicatas: List[Dict]) -> List[Dict]:
         """Calcula correção para remoção de duplicatas"""
-        cco = self.db.conta_custo_oleo_entity.find_one({'_id': cco_id})
+        cco = self.db_prd.conta_custo_oleo_entity.find_one({'_id': cco_id})
         correcoes_calculadas = []
         
         for duplicata in duplicatas:
@@ -816,13 +817,13 @@ class IPCACorrectionEngine:
         
         return observacao
      
-    def aplicar_correcoes_cenario_2(self, cco_id: str, correcoes_aprovadas: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def aplicar_correcoes_cenario_2(self, session_id, cco_id: str, correcoes_aprovadas: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         Aplica correções do Cenário 2 na CCO real
         """
         try:
             # Buscar CCO original
-            cco_original = self.db.conta_custo_oleo_entity.find_one({'_id': cco_id})
+            cco_original = self.db_prd.conta_custo_oleo_entity.find_one({'_id': cco_id})
             if not cco_original:
                 raise ValueError(f"CCO {cco_id} não encontrada")
             
@@ -871,6 +872,9 @@ class IPCACorrectionEngine:
 
             cco_corrigida = cco_original.copy()
             cco_corrigida['_id'] = novo_id
+            cco_corrigida['session_id'] = session_id
+            cco_corrigida['status_promocao'] = 'PENDENTE'
+            cco_corrigida['data_criacao_correcao'] = datetime.now()
             cco_corrigida['correcoesMonetarias'] = nova_lista_correcoes
             if reativacoes:
                 cco_corrigida['flgRecuperado'] = False
@@ -899,9 +903,9 @@ class IPCACorrectionEngine:
             logger.error(f"Erro ao aplicar correções Cenário 2: {e}")
             return {'success': False, 'error': str(e)}
         
-    def aplicar_correcoes_cenario_duplicatas(self, cco_id: str, correcoes_aprovadas: List[Dict]) -> Dict:
+    def aplicar_correcoes_cenario_duplicatas(self, session_id, cco_id: str, correcoes_aprovadas: List[Dict]) -> Dict:
         """Aplica correção de duplicatas"""
-        cco_original = self.db.conta_custo_oleo_entity.find_one({'_id': cco_id})
+        cco_original = self.db_prd.conta_custo_oleo_entity.find_one({'_id': cco_id})
         
         # Remover correções duplicadas (índices em ordem reversa)
         correcoes_monetarias = cco_original['correcoesMonetarias'].copy()
@@ -940,6 +944,9 @@ class IPCACorrectionEngine:
 
         cco_corrigida = cco_original.copy()
         cco_corrigida['_id'] = cco_id
+        cco_corrigida['session_id'] = session_id
+        cco_corrigida['status_promocao'] = 'PENDENTE'
+        cco_corrigida['data_criacao_correcao'] = datetime.now()
         cco_corrigida['correcoesMonetarias'] = correcoes_monetarias
         
         cco_corrigida['flgRecuperado'] = flag_recuperado
@@ -1573,13 +1580,13 @@ class IPCACorrectionEngine:
         descricao = ''
         for correcao in correcoes_ajustes_duplicatas:
             descricao += f"{correcao.get('description', '')}; "
-            
+        
         retificacao = {
             "tipo": "RETIFICACAO",
             "subTipo": "COMPENSACAO",
             "contrato": cco_original.get('contratoCpp', ''),
             "campo": cco_original.get('campo', ''),
-            "dataCorrecao": datetime.now(),
+            "dataCorrecao": datetime.now().isoformat(),
             "dataCriacaoCorrecao": datetime.now(),
             "valorReconhecido": ultima_correcao['valorReconhecido'],
             "valorReconhecidoComOH": Decimal128(str(round(novo_valor, 15))),

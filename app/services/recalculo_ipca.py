@@ -47,7 +47,7 @@ class IPCARecalculoManager:
         
         # Conectar ao MongoDB
         self.client = MongoClient(self.mongo_uri)
-        self.db = self.client.sgppServices
+        self.db_prd = self.client.sgppServices
         
         self.client_local = None
         self.db_local = None
@@ -57,8 +57,8 @@ class IPCARecalculoManager:
             self.db_local = self.client_local.temp_recalculos
         
         # Inicializar serviços
-        self.recalculo_service = IPCAIGPMRecalculoService(self.db, self.db_local)
-        self.gap_analyzer = IPCAGapAnalyzer(self.db)
+        self.recalculo_service = IPCAIGPMRecalculoService(self.db_local, self.db_prd)
+        self.gap_analyzer = IPCAGapAnalyzer(self.db_local, self.db_prd)
         self.report_generator = IPCAGapReportGenerator(self.gap_analyzer)
         
         print("✓ Conexões estabelecidas e serviços inicializados")

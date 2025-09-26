@@ -1,0 +1,545 @@
+<!-- templates/ipca_promocao/timeline_correcao.html -->
+{% extends "base.html" %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="max-width: 1600px;">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">
+            <i class="fas fa-chart-line me-2"></i>
+            Timeline CCO Corrigida
+        </h1>
+        <div class="d-flex gap-2">
+            <span class="badge bg-info fs-6">{{ cco._id }}</span>
+            <button class="btn btn-outline-primary btn-sm" onclick="voltarDetalhes()">
+                <i class="fas fa-arrow-left me-1"></i>Voltar
+            </button>
+        </div>
+    </div>
+
+    <!-- Alerta de CCO Temporária -->
+    <div class="alert alert-warning mb-4">
+        <div class="d-flex align-items-center">
+            <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+            <div>
+                <h5 class="alert-heading mb-1">CCO Temporária (Não Promovida)</h5>
+                <p class="mb-0">
+                    Esta é uma visualização da CCO corrigida que ainda não foi promovida para produção. 
+                    Os dados mostrados representam como a CCO ficará após a promoção.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Informações Básicas da CCO -->
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Informações da CCO
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-5">ID:</dt>
+                                <dd class="col-7"><code>{{ cco._id }}</code></dd>
+                                
+                                <dt class="col-5">Contrato CPP:</dt>
+                                <dd class="col-7">{{ cco.contratoCpp }}</dd>
+                                
+                                <dt class="col-5">Campo:</dt>
+                                <dd class="col-7">{{ cco.campo }}</dd>
+                                
+                                <dt class="col-5">Remessa:</dt>
+                                <dd class="col-7">{{ cco.remessa }}</dd>
+                            </dl>
+                        </div>
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-5">Exercício:</dt>
+                                <dd class="col-7">{{ cco.exercicio }}</dd>
+                                
+                                <dt class="col-5">Fase:</dt>
+                                <dd class="col-7">{{ cco.faseRemessa }}</dd>
+                                
+                                <dt class="col-5">Recuperada:</dt>
+                                <dd class="col-7">
+                                    <span class="badge bg-{{ 'danger' if cco.flgRecuperado else 'success' }}">
+                                        {{ 'Sim' if cco.flgRecuperado else 'Não' }}
+                                    </span>
+                                </dd>
+                                
+                                <dt class="col-5">Status Promoção:</dt>
+                                <dd class="col-7">
+                                    {% set status = cco.status_promocao or 'PENDENTE' %}
+                                    <span class="badge bg-{{ 'success' if status == 'PROMOVIDA' else 'warning' }}">
+                                        {{ status }}
+                                    </span>
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <!-- Valores Atuais -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-dollar-sign me-2"></i>
+                        Valores Atuais
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-7">Valor Reconhecido:</dt>
+                        <dd class="col-5">
+                            <span class="fw-bold text-primary">
+                                R$ {{ "%.2f"|format(valores_atuais.valorReconhecido) }}
+                            </span>
+                        </dd>
+                        
+                        <dt class="col-7">Com Overhead:</dt>
+                        <dd class="col-5">
+                            <span class="fw-bold text-success">
+                                R$ {{ "%.2f"|format(valores_atuais.valorReconhecidoComOH) }}
+                            </span>
+                        </dd>
+                        
+                        <dt class="col-7">Overhead Total:</dt>
+                        <dd class="col-5">
+                            <span class="fw-bold text-info">
+                                R$ {{ "%.2f"|format(valores_atuais.overHeadTotal) }}
+                            </span>
+                        </dd>
+                        
+                        <dt class="col-7">Última Atualização:</dt>
+                        <dd class="col-5">
+                            <small class="text-muted">{{ valores_atuais.ultimaAtualizacao or 'N/A' }}</small>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Timeline das Correções -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="fas fa-history me-2"></i>
+                Timeline das Correções Monetárias
+            </h5>
+            <div class="d-flex gap-2">
+                <span class="badge bg-primary">
+                    {{ (cco.correcoesMonetarias|length if cco.correcoesMonetarias else 0) + 1 }} eventos
+                </span>
+                <button class="btn btn-primary btn-sm" onclick="abrirTimelineDetalhada()">
+                    <i class="fas fa-expand me-1"></i>
+                    Ver Timeline Detalhada
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="text-center py-4">
+                <i class="fas fa-timeline fa-3x text-muted mb-3"></i>
+                <h6 class="text-muted">Timeline Completa Disponível</h6>
+                <p class="text-muted mb-0">
+                    Clique no botão acima para visualizar a timeline detalhada com todos os eventos e correções desta CCO.
+                </p>
+            </div>
+        </div>
+    </div>
+    <!-- Informações da Sessão de Correção -->
+    {% if cco.session_id %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card border-info">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-link me-2"></i>
+                        Sessão de Correção Vinculada
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <dt>Session ID:</dt>
+                            <dd><code>{{ cco.session_id }}</code></dd>
+                        </div>
+                        <div class="col-md-6">
+                            <dt>Data de Criação:</dt>
+                            <dd>
+                                {% if cco.data_criacao_correcao %}
+                                    {{ cco.data_criacao_correcao.strftime('%d/%m/%Y %H:%M') }}
+                                {% else %}
+                                    <span class="text-muted">N/A</span>
+                                {% endif %}
+                            </dd>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <button class="btn btn-info btn-sm" onclick="verMemoriaCalculo()">
+                            <i class="fas fa-external-link-alt me-1"></i>
+                            Ver Memória de Cálculo Completa
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Ações Disponíveis -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-tools me-2"></i>
+                        Ações Disponíveis
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button class="btn btn-primary" onclick="voltarDetalhes()">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Ver Detalhes da Correção
+                        </button>
+                        
+                        {% if cco.session_id %}
+                        <button class="btn btn-secondary" onclick="verMemoriaCalculo()">
+                            <i class="fas fa-calculator me-1"></i>
+                            Memória de Cálculo
+                        </button>
+                        {% endif %}
+                        
+                        <button class="btn btn-info" onclick="exportarJSON()">
+                            <i class="fas fa-download me-1"></i>
+                            Exportar JSON
+                        </button>
+                        
+                        {% if (cco.status_promocao or 'PENDENTE') == 'PENDENTE' %}
+                        <button class="btn btn-success" onclick="promoverCorrecao()">
+                            <i class="fas fa-rocket me-1"></i>
+                            Promover para Produção
+                        </button>
+                        {% endif %}
+                        
+                        <button class="btn btn-outline-primary" onclick="voltarPesquisa()">
+                            <i class="fas fa-search me-1"></i>
+                            Voltar à Pesquisa
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para visualização do JSON -->
+<div class="modal fade" id="modalJSON" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-code me-2"></i>
+                    JSON da CCO Corrigida
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <button class="btn btn-outline-primary btn-sm" onclick="copiarJSON()">
+                        <i class="fas fa-copy me-1"></i>
+                        Copiar JSON
+                    </button>
+                    <button class="btn btn-outline-success btn-sm" onclick="baixarJSON()">
+                        <i class="fas fa-download me-1"></i>
+                        Baixar Arquivo
+                    </button>
+                </div>
+                <pre id="jsonContent" style="max-height: 500px; overflow-y: auto; background: #f8f9fa; padding: 15px; border-radius: 5px;"><code>{{ cco_json }}</code></pre>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Modal Timeline Detalhada -->
+<div class="modal fade" id="modalTimelineDetalhada" tabindex="-1">
+    <div class="modal-dialog modal-fullscreen">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-history me-2"></i>
+                    Timeline Detalhada - {{ cco._id }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="modalTimelineContent">
+                <div class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <div class="mt-2">Carregando timeline...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block styles %}
+<style>
+.timeline-container {
+    position: relative;
+    padding-left: 30px;
+}
+
+.timeline-container::before {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #dee2e6;
+}
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 2rem;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: -22px;
+    top: 15px;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 3px solid white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.timeline-content {
+    margin-left: 20px;
+}
+
+.timeline-item:last-child {
+    margin-bottom: 0;
+}
+
+.card-header.bg-primary.bg-opacity-10 {
+    background-color: rgba(13, 110, 253, 0.1) !important;
+}
+
+.card-header.bg-success.bg-opacity-10 {
+    background-color: rgba(25, 135, 84, 0.1) !important;
+}
+
+.card-header.bg-warning.bg-opacity-10 {
+    background-color: rgba(255, 193, 7, 0.1) !important;
+}
+
+.card-header.bg-danger.bg-opacity-10 {
+    background-color: rgba(220, 53, 69, 0.1) !important;
+}
+
+.card-header.bg-info.bg-opacity-10 {
+    background-color: rgba(13, 202, 240, 0.1) !important;
+}
+
+.card-header.bg-secondary.bg-opacity-10 {
+    background-color: rgba(108, 117, 125, 0.1) !important;
+}
+
+pre code {
+    font-size: 0.875rem;
+    line-height: 1.4;
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const ccoId = '{{ cco._id }}';
+const sessionId = '{{ cco.session_id or "" }}';
+const ccoJson = {{ cco_json|safe }};
+
+function voltarDetalhes() {
+    window.close();
+    // Se não conseguir fechar (não foi aberta via script), redirecionar
+    setTimeout(() => {
+        window.location.href = `/ipca-promocao/detalhar/${ccoId}`;
+    }, 100);
+}
+
+function voltarPesquisa() {
+    window.close();
+    // Se não conseguir fechar, redirecionar
+    setTimeout(() => {
+        window.location.href = '{{ url_for("ipca_promocao.index") }}';
+    }, 100);
+}
+
+function verMemoriaCalculo() {
+    if (sessionId) {
+        window.open(`/ipca-promocao/memoria-calculo/${sessionId}`, '_blank');
+    } else {
+        alert('Memória de cálculo não disponível para esta correção.');
+    }
+}
+
+function exportarJSON() {
+    const modal = new bootstrap.Modal(document.getElementById('modalJSON'));
+    modal.show();
+}
+
+function copiarJSON() {
+    const content = document.getElementById('jsonContent').textContent;
+    
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(content).then(() => {
+            alert('JSON copiado para a área de transferência!');
+        }).catch(err => {
+            console.error('Erro ao copiar:', err);
+            fallbackCopyTextToClipboard(content);
+        });
+    } else {
+        fallbackCopyTextToClipboard(content);
+    }
+}
+
+function fallbackCopyTextToClipboard(text) {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = "fixed";
+    textArea.style.left = "-999999px";
+    textArea.style.top = "-999999px";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+            alert('JSON copiado para a área de transferência!');
+        } else {
+            alert('Não foi possível copiar o JSON. Selecione e copie manualmente.');
+        }
+    } catch (err) {
+        alert('Erro ao copiar. Selecione e copie manualmente.');
+    }
+    
+    document.body.removeChild(textArea);
+}
+
+function baixarJSON() {
+    const content = JSON.stringify(ccoJson, null, 2);
+    const blob = new Blob([content], { type: 'application/json' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = `cco_corrigida_${ccoId}.json`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+}
+
+function promoverCorrecao() {
+    const status = '{{ cco.status_promocao or "PENDENTE" }}';
+    
+    if (status === 'PROMOVIDA') {
+        alert('Esta correção já foi promovida para produção.');
+        return;
+    }
+    
+    if (confirm('Tem certeza que deseja promover esta correção para produção?')) {
+        const observacoes = prompt('Observações da promoção (opcional):');
+        
+        mostrarLoading();
+        
+        fetch('/ipca-promocao/api/promover', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                cco_id: ccoId,
+                user_id: 'current_user', // TODO: Implementar controle de usuário
+                observacoes: observacoes
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            esconderLoading();
+            
+            if (data.success) {
+                alert(`Correção promovida com sucesso!\n\nNova versão: ${data.nova_versao}\nData: ${new Date(data.data_promocao).toLocaleString('pt-BR')}`);
+                
+                // Recarregar página para mostrar status atualizado
+                window.location.reload();
+            } else {
+                alert('Erro na promoção: ' + (data.error || 'Erro desconhecido'));
+                if (data.motivos) {
+                    alert('Motivos:\n' + data.motivos.join('\n'));
+                }
+            }
+        })
+        .catch(error => {
+            esconderLoading();
+            console.error('Erro na promoção:', error);
+            alert('Erro ao promover correção');
+        });
+    }
+}
+
+function mostrarLoading() {
+    // Criar overlay de loading se não existir
+    if (!document.getElementById('loadingOverlay')) {
+        const overlay = document.createElement('div');
+        overlay.id = 'loadingOverlay';
+        overlay.style.cssText = `
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 9999; display: flex;
+            justify-content: center; align-items: center;
+        `;
+        overlay.innerHTML = `
+            <div class="text-center text-white">
+                <div class="spinner-border mb-3" role="status"></div>
+                <h5>Promovendo correção...</h5>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+    } else {
+        document.getElementById('loadingOverlay').style.display = 'flex';
+    }
+}
+
+function esconderLoading() {
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
+}
+
+// Melhorar a formatação do JSON no modal
+document.addEventListener('DOMContentLoaded', function() {
+    const jsonElement = document.getElementById('jsonContent');
+    if (jsonElement && ccoJson) {
+        jsonElement.innerHTML = '<code>' + JSON.stringify(ccoJson, null, 2) + '</code>';
+    }
+});
+</script>
+{% endblock %}

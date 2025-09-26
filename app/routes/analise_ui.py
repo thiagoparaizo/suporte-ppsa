@@ -8,7 +8,7 @@ import logging
 import uuid
 from datetime import datetime
 
-from app.config import MONGO_URI
+from app.config import MONGO_URI, MONGO_URI_PRD
 from app.services.remessa_service import RemessaAnaliseService
 from app.utils.converters import formatar_data_brasileira
 from app.utils.json_encoder import json_response
@@ -29,7 +29,7 @@ analise_bp = Blueprint('analise_ui', __name__)
 logger = logging.getLogger(__name__)
 
 # Instância do serviço
-remessa_service = RemessaAnaliseService(MONGO_URI)
+remessa_service = RemessaAnaliseService(MONGO_URI, MONGO_URI_PRD)
 
 @analise_bp.route('/api/remessa-detalhada-analise/<remessa_id>')
 def api_remessa_detalhada_analise(remessa_id):

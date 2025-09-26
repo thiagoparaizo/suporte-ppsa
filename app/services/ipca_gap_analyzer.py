@@ -18,7 +18,7 @@ class IPCAGapAnalyzer:
     Analisador de gaps de correção IPCA/IGPM
     """
     
-    def __init__(self, db_connection):
+    def __init__(self, db_connection, db_connection_prd=None):
         """
         Inicializa o analisador
         
@@ -26,6 +26,7 @@ class IPCAGapAnalyzer:
             db_connection: Conexão com MongoDB
         """
         self.db = db_connection
+        self.db_prd = db_connection_prd
         
         # Parâmetro configurável para ajuste do mês da taxa
         # 0 = mesmo mês, -1 = mês anterior, +1 = mês posterior
@@ -111,7 +112,7 @@ class IPCAGapAnalyzer:
             ccos_com_correcoes_fora = []
             ccos_com_duplicatas = []
             
-            cursor = self.db.conta_custo_oleo_entity.find(query).sort(sort)
+            cursor = self.db_prd.conta_custo_oleo_entity.find(query).sort(sort)
             
             for cco in cursor:
                 estatisticas['total_ccos_analisadas'] += 1
@@ -198,114 +199,6 @@ class IPCAGapAnalyzer:
             logger.error(f"Erro ao analisar gaps do sistema: {e}")
             return {'error': str(e)}
     
-    # def _analisar_cco_individual(self, cco: Dict[str, Any], data_atual: datetime) -> List[Dict[str, Any]]:
-    #     """
-    #     Analisa uma CCO individual para identificar gaps
-    #     """
-    #     gaps = []
-    #     correcoes_fora_do_periodo = []
-        
-    #     # Garantir que data_atual tenha timezone
-    #     if data_atual.tzinfo is None:
-    #         data_atual = data_atual.replace(tzinfo=timezone.utc)
-        
-    #     # Validar data de reconhecimento
-    #     data_reconhecimento = self._extrair_data_reconhecimento(cco)
-    #     if not data_reconhecimento:
-    #         return gaps
-        
-    #     # Mapear correções IPCA/IGPM existentes
-    #     correcoes_existentes = self._mapear_correcoes_ipca_igpm(cco)
-        
-    #     # Calcular primeiro aniversário: 1 mês após o reconhecimento
-    #     mes_reconhecimento = data_reconhecimento.month
-    #     ano_reconhecimento = data_reconhecimento.year
-        
-    #     # Primeiro aniversário: mês seguinte ao reconhecimento
-    #     if mes_reconhecimento == 12:
-    #         # Dezembro -> Janeiro do ano seguinte
-    #         mes_aniversario = 1
-    #         ano_aniversario = ano_reconhecimento + 2  # +2 porque vai para janeiro do segundo ano
-    #     else:
-    #         # Outros meses -> mês seguinte do ano seguinte
-    #         mes_aniversario = mes_reconhecimento + 1
-    #         ano_aniversario = ano_reconhecimento + 1
-        
-    #     logger.info(f"Analisando CCO {cco['_id']} - Reconhecimento: {mes_reconhecimento:02d}/{ano_reconhecimento}, Primeiro aniversário: {mes_aniversario:02d}/{ano_aniversario}")
-        
-    #     # Primeiro, mapear TODAS as correções por ano para melhor análise
-    #     correcoes_por_ano = self._mapear_correcoes_por_ano(cco)
-        
-    #     while ano_aniversario <= data_atual.year:
-    #         chave_periodo = (ano_aniversario, mes_aniversario)
-    #         ano_taxa, mes_taxa = self._calcular_mes_taxa_aplicacao(ano_aniversario, mes_aniversario)
-    #         logger.info(f"CCO {cco['_id']} - Aniversário: {mes_aniversario:02d}/{ano_aniversario}, Taxa período: {mes_taxa:02d}/{ano_taxa}")
-            
-    #         # Verificar data limite
-    #         if ano_aniversario == data_atual.year and mes_aniversario >= data_atual.month:
-    #             if mes_aniversario == data_atual.month and data_atual.day < 16:
-    #                 break
-    #             elif mes_aniversario > data_atual.month:
-    #                 break
-            
-    #         # Verificar se já existe correção EXATA para este período
-    #         if chave_periodo not in correcoes_existentes:
-    #             logger.warning(f"Correção IPCA/IGPM para {mes_aniversario:02d}/{ano_aniversario} não encontrada para CCO {cco['_id']}")
-                
-    #             # Buscar correções em anos próximos (ano do aniversário e seguinte)
-    #             correcao_encontrada = self._buscar_correcao_para_aniversario(
-    #                 cco, ano_aniversario, mes_aniversario, correcoes_por_ano
-    #             )
-                
-    #             if correcao_encontrada:
-    #                 # Existe correção, mas fora do período
-    #                 correcao_info = correcao_encontrada
-    #                 correcao = correcao_info['correcao']
-                    
-    #                 # Calcular diferença de tempo entre aniversário e aplicação
-    #                 data_aniversario_esperada = datetime(ano_aniversario, mes_aniversario, 16, tzinfo=timezone.utc)
-    #                 data_aplicacao = correcao_info['data_correcao']
-                    
-    #                 # Obter taxas
-    #                 taxa_aplicada = self._converter_decimal128_para_float(correcao.get('taxaCorrecao', 1.0))
-    #                 taxa_esperada = self._obter_taxa_esperada_periodo(ano_taxa, mes_taxa, correcao.get('tipo', 'IPCA'))
-                    
-    #                 correcoes_fora_do_periodo.append({
-    #                     'ano_aniversario': ano_aniversario,
-    #                     'mes_aniversario': mes_aniversario,
-    #                     'ano_taxa_esperada': ano_taxa,
-    #                     'mes_taxa_esperada': mes_taxa,
-    #                     'ano_aplicado': data_aplicacao.year,
-    #                     'mes_aplicado': data_aplicacao.month,
-    #                     'data_aniversario_esperada': data_aniversario_esperada.isoformat(),
-    #                     'data_aplicacao_real': data_aplicacao.isoformat(),
-    #                     'atraso_meses': self._calcular_atraso_meses(data_aniversario_esperada, data_aplicacao),
-    #                     'taxa_aplicada': taxa_aplicada,
-    #                     'taxa_esperada': taxa_esperada,
-    #                     'diferenca_taxa': (taxa_esperada - taxa_aplicada) if taxa_esperada else 0,
-    #                     'valor_atual': self._converter_decimal128_para_float(correcao.get('valorReconhecidoComOH', 0)),
-    #                     'tipo_correcao': correcao.get('tipo', 'IPCA'),
-    #                     'necessita_ajuste': abs(taxa_esperada - taxa_aplicada) > 0.001 if taxa_esperada else False
-    #                 })
-    #             else:
-    #                 # Gap real - não existe correção
-    #                 valor_na_data = self._calcular_valor_cco_na_data(cco, datetime(ano_aniversario, mes_aniversario, 16, tzinfo=timezone.utc))
-                    
-    #                 if valor_na_data > 0:
-    #                     gaps.append({
-    #                         'ano': ano_aniversario,
-    #                         'mes': mes_aniversario,
-    #                         'ano_taxa_esperada': ano_taxa,
-    #                         'mes_taxa_esperada': mes_taxa,
-    #                         'data_aniversario': datetime(ano_aniversario, mes_aniversario, 16, tzinfo=timezone.utc).isoformat(),
-    #                         'valor_base': valor_na_data,
-    #                         'tipo_sugerido': 'IPCA',
-    #                         'prioridade': self._calcular_prioridade_gap(datetime(ano_aniversario, mes_aniversario, 16, tzinfo=timezone.utc), valor_na_data)
-    #                     })
-            
-    #         ano_aniversario += 1
-        
-    #     return gaps, correcoes_fora_do_periodo
     
     def _analisar_cco_individual(self, cco: Dict[str, Any], data_atual: datetime) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         """

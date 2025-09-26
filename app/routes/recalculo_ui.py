@@ -10,7 +10,7 @@ import io
 from datetime import datetime
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 
-from app.config import MONGO_URI
+from app.config import MONGO_URI, MONGO_URI_PRD
 from app.services.recalculo_service import RecalculoService, TipoRecalculo, ModoRecalculo
 from app.utils.cache_utils import CacheManager
 from app.utils.converters import converter_decimal128_para_float
@@ -44,7 +44,7 @@ def api_pesquisar_ccos():
         if not dados:
             return json_response({'success': False, 'error': 'Dados não fornecidos'}, 400)
         
-        recalculo_service = RecalculoService(MONGO_URI)
+        recalculo_service = RecalculoService(MONGO_URI, MONGO_URI_PRD)
         resultado = recalculo_service.pesquisar_ccos_para_recalculo(dados)
         
         return json_response(resultado)
@@ -72,7 +72,7 @@ def api_executar_recalculo():
             if campo not in dados:
                 return json_response({'success': False, 'error': f'Campo obrigatório: {campo}'}, 400)
         
-        recalculo_service = RecalculoService(MONGO_URI)
+        recalculo_service = RecalculoService(MONGO_URI, MONGO_URI_PRD)
         
         # Executar recálculo baseado no tipo
         if dados['tipo_recalculo'] == TipoRecalculo.TRACK_PARTICIPATION:
@@ -145,7 +145,7 @@ def api_salvar_temporario():
             return json_response({'success': False, 'error': 'Resultado não encontrado no cache'}, 400)
         
         # Salvar em coleção temporária
-        recalculo_service = RecalculoService(MONGO_URI)
+        recalculo_service = RecalculoService(MONGO_URI, MONGO_URI_PRD)
         resultado_salvar = recalculo_service.salvar_resultado_temporario(resultado)
         
         return json_response(resultado_salvar)
@@ -164,7 +164,7 @@ def api_aplicar_definitivo():
         if not id_temporario:
             return json_response({'success': False, 'error': 'ID temporário não fornecido'}, 400)
         
-        recalculo_service = RecalculoService(MONGO_URI)
+        recalculo_service = RecalculoService(MONGO_URI, MONGO_URI_PRD)
         resultado = recalculo_service.aplicar_recalculo_definitivo(id_temporario)
         
         return json_response(resultado)
@@ -205,7 +205,7 @@ def listar_temporarios():
 def api_listar_temporarios():
     """API para listar recálculos temporários"""
     try:
-        recalculo_service = RecalculoService(MONGO_URI)
+        recalculo_service = RecalculoService(MONGO_URI, MONGO_URI_PRD)
         resultados = recalculo_service.listar_recalculos_temporarios()
         
         return json_response({
@@ -228,7 +228,7 @@ def api_modal_recalculo():
             return json_response({'success': False, 'error': 'CCO ID não fornecido'}, 400)
         
         # Buscar dados básicos da CCO para o modal
-        recalculo_service = RecalculoService(MONGO_URI)
+        recalculo_service = RecalculoService(MONGO_URI, MONGO_URI_PRD)
         resultado_pesquisa = recalculo_service.pesquisar_ccos_para_recalculo({'id': cco_id})
         
         if not resultado_pesquisa['success'] or not resultado_pesquisa['resultados']:

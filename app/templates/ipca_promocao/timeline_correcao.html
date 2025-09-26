@@ -1,0 +1,931 @@
+<!-- templates/ipca_promocao/timeline_correcao.html -->
+{% extends "base.html" %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block styles %}
+<style>
+/* Timeline centralizada - similar ao cco_timeline.html */
+.timeline-container {
+    position: relative;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.timeline-line {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: 100%;
+    background: linear-gradient(to bottom, #007bff, #28a745);
+    border-radius: 2px;
+}
+
+.timeline-item {
+    position: relative;
+    margin: 30px 0;
+    display: flex;
+    align-items: center;
+}
+
+.timeline-item:nth-child(odd) {
+    flex-direction: row;
+}
+
+.timeline-item:nth-child(even) {
+    flex-direction: row-reverse;
+}
+
+.timeline-content {
+    width: 45%;
+    background: white;
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    position: relative;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.timeline-content:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+}
+
+.timeline-icon {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 20px;
+    z-index: 10;
+}
+
+.timeline-date {
+    font-size: 0.9em;
+    color: #666;
+    margin-bottom: 10px;
+    font-weight: 500;
+}
+
+.timeline-header {
+    position: relative;
+}
+
+.timeline-toggle-icon {
+    color: #6c757d;
+    font-size: 1.2em;
+    transition: transform 0.3s ease;
+}
+
+.timeline-content.expanded .timeline-toggle-icon {
+    transform: rotate(180deg);
+}
+
+.timeline-body {
+    transition: all 0.3s ease;
+}
+
+/* Cards de informação */
+.info-card {
+    background: white;
+    padding: 12px;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
+    height: 100%;
+}
+
+.info-label {
+    font-size: 0.8rem;
+    color: #6c757d;
+    font-weight: 500;
+    margin-bottom: 4px;
+    display: block;
+}
+
+.info-value {
+    font-weight: 600;
+}
+
+/* Grid de valores */
+.valores-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.valor-card {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 4px solid;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.valor-card.primary { border-left-color: #0d6efd; }
+.valor-card.success { border-left-color: #198754; }
+.valor-card.info { border-left-color: #0dcaf0; }
+.valor-card.danger { border-left-color: #dc3545; }
+.valor-card.warning { border-left-color: #ffc107; }
+
+.valor-card label {
+    font-size: 0.8rem;
+    color: #6c757d;
+    font-weight: 500;
+    margin-bottom: 4px;
+    display: block;
+}
+
+.valor-card .valor {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #212529;
+}
+
+/* Cards de observações e detalhes */
+.observacoes-card, .detalhes-card {
+    background: #fff3cd;
+    border: 1px solid #ffecb5;
+    border-radius: 8px;
+    padding: 15px;
+}
+
+.observacoes-label, .detalhes-label {
+    font-weight: 600;
+    color: #664d03;
+    margin-bottom: 8px;
+    display: block;
+}
+
+.observacoes-content, .detalhes-content {
+    color: #664d03;
+    line-height: 1.4;
+}
+
+.toggle-detalhes {
+    cursor: pointer;
+    color: #007bff;
+    text-decoration: none;
+    font-size: 0.9em;
+    margin-top: 10px;
+    display: inline-block;
+}
+
+.detalhes-extras {
+    margin-top: 15px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    display: none;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .timeline-item {
+        flex-direction: column !important;
+    }
+    
+    .timeline-content {
+        width: 90%;
+        margin: 10px 0;
+    }
+    
+    .timeline-icon {
+        position: relative;
+        left: auto;
+        transform: none;
+        margin: 10px 0;
+    }
+    
+    .timeline-line {
+        display: none;
+    }
+    
+    .valores-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+pre code {
+    font-size: 0.875rem;
+    line-height: 1.4;
+}
+
+.card-header.bg-primary.bg-opacity-10 {
+    background-color: rgba(13, 110, 253, 0.1) !important;
+}
+
+.card-header.bg-success.bg-opacity-10 {
+    background-color: rgba(25, 135, 84, 0.1) !important;
+}
+
+.card-header.bg-warning.bg-opacity-10 {
+    background-color: rgba(255, 193, 7, 0.1) !important;
+}
+
+.card-header.bg-danger.bg-opacity-10 {
+    background-color: rgba(220, 53, 69, 0.1) !important;
+}
+
+.card-header.bg-info.bg-opacity-10 {
+    background-color: rgba(13, 202, 240, 0.1) !important;
+}
+
+.card-header.bg-secondary.bg-opacity-10 {
+    background-color: rgba(108, 117, 125, 0.1) !important;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="max-width: 1600px;">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">
+            <i class="fas fa-chart-line me-2"></i>
+            Timeline CCO Corrigida
+        </h1>
+        <div class="d-flex gap-2">
+            <span class="badge bg-info fs-6">{{ cco._id }}</span>
+            <button class="btn btn-outline-primary btn-sm" onclick="voltarDetalhes()">
+                <i class="fas fa-arrow-left me-1"></i>Voltar
+            </button>
+        </div>
+    </div>
+
+    <!-- Alerta de CCO Temporária -->
+    <div class="alert alert-warning mb-4">
+        <div class="d-flex align-items-center">
+            <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+            <div>
+                <h5 class="alert-heading mb-1">CCO Temporária (Não Promovida)</h5>
+                <p class="mb-0">
+                    Esta é uma visualização da CCO corrigida que ainda não foi promovida para produção. 
+                    Os dados mostrados representam como a CCO ficará após a promoção.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Informações Básicas da CCO -->
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Informações da CCO
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-5">ID:</dt>
+                                <dd class="col-7"><code>{{ cco._id }}</code></dd>
+                                
+                                <dt class="col-5">Contrato CPP:</dt>
+                                <dd class="col-7">{{ cco.contratoCpp }}</dd>
+                                
+                                <dt class="col-5">Campo:</dt>
+                                <dd class="col-7">{{ cco.campo }}</dd>
+                                
+                                <dt class="col-5">Remessa:</dt>
+                                <dd class="col-7">{{ cco.remessa }}</dd>
+                            </dl>
+                        </div>
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-5">Exercício:</dt>
+                                <dd class="col-7">{{ cco.exercicio }}</dd>
+                                
+                                <dt class="col-5">Fase:</dt>
+                                <dd class="col-7">{{ cco.faseRemessa }}</dd>
+                                
+                                <dt class="col-5">Recuperada:</dt>
+                                <dd class="col-7">
+                                    <span class="badge bg-{{ 'danger' if cco.flgRecuperado else 'success' }}">
+                                        {{ 'Sim' if cco.flgRecuperado else 'Não' }}
+                                    </span>
+                                </dd>
+                                
+                                <dt class="col-5">Status Promoção:</dt>
+                                <dd class="col-7">
+                                    {% set status = cco.status_promocao or 'PENDENTE' %}
+                                    <span class="badge bg-{{ 'success' if status == 'PROMOVIDA' else 'warning' }}">
+                                        {{ status }}
+                                    </span>
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <!-- Valores Atuais -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-dollar-sign me-2"></i>
+                        Valores Atuais
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-7">Valor Reconhecido:</dt>
+                        <dd class="col-5">
+                            <span class="fw-bold text-primary">
+                                R$ {{ "%.2f"|format(valores_atuais.valorReconhecido) }}
+                            </span>
+                        </dd>
+                        
+                        <dt class="col-7">Com Overhead:</dt>
+                        <dd class="col-5">
+                            <span class="fw-bold text-success">
+                                R$ {{ "%.2f"|format(valores_atuais.valorReconhecidoComOH) }}
+                            </span>
+                        </dd>
+                        
+                        <dt class="col-7">Overhead Total:</dt>
+                        <dd class="col-5">
+                            <span class="fw-bold text-info">
+                                R$ {{ "%.2f"|format(valores_atuais.overHeadTotal) }}
+                            </span>
+                        </dd>
+                        
+                        <dt class="col-7">Última Atualização:</dt>
+                        <dd class="col-5">
+                            <small class="text-muted">{{ valores_atuais.ultimaAtualizacao or 'N/A' }}</small>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Controles da Timeline -->
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <h4><i class="fas fa-history me-2"></i>Histórico de Correções Monetárias</h4>
+                <div class="d-flex gap-2">
+                    <span class="badge bg-primary">
+                        {{ (cco.correcoesMonetarias|length if cco.correcoesMonetarias else 0) + 1 }} eventos
+                    </span>
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-outline-primary btn-sm" onclick="expandirTodosEventos()">
+                            <i class="fas fa-expand-arrows-alt me-1"></i>Expandir Todos
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="contrairTodosEventos()">
+                            <i class="fas fa-compress-arrows-alt me-1"></i>Contrair Todos
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Timeline das Correções - Estilo Centralizado -->
+    {% if timeline %}
+        <div class="timeline-container">
+            <div class="timeline-line"></div>
+            
+            {% for evento in timeline %}
+            <div class="timeline-item">
+                <div class="timeline-content" onclick="toggleEvento({{ loop.index }})">
+                    <!-- Header do evento (sempre visível) -->
+                    <div class="timeline-header">
+                        <div class="timeline-date">
+                            <i class="fas fa-calendar-alt me-1"></i>{{ evento.data_formatada }}
+                        </div>
+                        
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h5 class="mb-1 text-{{ evento.cor }}">
+                                    <i class="fas fa-{{ evento.icone }} me-2"></i>
+                                    {{ evento.titulo }}
+                                    {% if evento.valores and evento.valores.get('ativo') == false %}
+                                        <span class="badge bg-danger ms-2">INATIVA</span>
+                                    {% endif %}
+                                </h5>
+                                <p class="text-muted mb-0">{{ evento.descricao }}</p>
+                                {% if evento.valores and evento.valores.valorReconhecidoComOH %}
+                                    <div class="fw-bold text-{{ 'success' if evento.valores.valorReconhecidoComOH >= 0 else 'danger' }} mt-1">
+                                        R$ {{ "%.2f"|format(evento.valores.valorReconhecidoComOH) }}
+                                        {% if evento.impacto_financeiro %}
+                                            <small class="badge bg-{{ 'success' if evento.impacto_financeiro >= 0 else 'danger' }} ms-2">
+                                                {{ '+' if evento.impacto_financeiro >= 0 else '' }}R$ {{ "%.2f"|format(evento.impacto_financeiro) }}
+                                            </small>
+                                        {% endif %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            <div class="timeline-toggle-icon">
+                                <i class="fas fa-chevron-down"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Conteúdo expandível -->
+                    <div class="timeline-body" id="evento-body-{{ loop.index }}" style="display: none;">
+                        <hr class="my-3">
+                        
+                        <!-- Informações do Tipo de Correção -->
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <div class="info-card">
+                                    <label class="info-label">Tipo de Correção:</label>
+                                    <div class="info-value">
+                                        <span class="badge bg-{{ evento.cor }} fs-6">{{ evento.tipo or 'CRIACAO' }}</span>
+                                        {% if evento.valores and evento.valores.get('subTipo') %}
+                                            <span class="badge bg-secondary ms-1">{{ evento.valores.subTipo }}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="info-card">
+                                    <label class="info-label">Status:</label>
+                                    <div class="info-value">
+                                        {% if evento.valores and evento.valores.get('ativo') == false %}
+                                            <span class="badge bg-danger">INATIVA</span>
+                                        {% else %}
+                                            <span class="badge bg-success">ATIVA</span>
+                                        {% endif %}
+                                        {% if evento.valores and evento.valores.get('transferencia') %}
+                                            <span class="badge bg-info ms-1">TRANSFERÊNCIA</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% if evento.valores and evento.valores.get('taxaCorrecao') %}
+                            <div class="col-md-4">
+                                <div class="info-card">
+                                    <label class="info-label">Taxa Aplicada:</label>
+                                    <div class="info-value fw-bold text-primary">
+                                        {{ "%.4f"|format(evento.valores.taxaCorrecao * 100) }}%
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Valores Financeiros -->
+                        {% if evento.valores %}
+                        <div class="valores-grid mb-3">
+                            <div class="valor-card primary">
+                                <label>Valor Reconhecido</label>
+                                <div class="valor">R$ {{ "%.2f"|format(evento.valores.valorReconhecido or 0) }}</div>
+                            </div>
+                            <div class="valor-card success">
+                                <label>Com Overhead</label>
+                                <div class="valor">R$ {{ "%.2f"|format(evento.valores.valorReconhecidoComOH or 0) }}</div>
+                            </div>
+                            <div class="valor-card info">
+                                <label>Overhead Total</label>
+                                <div class="valor">R$ {{ "%.2f"|format(evento.valores.overHeadTotal or 0) }}</div>
+                            </div>
+                            {% if evento.valores.diferencaValor and evento.valores.diferencaValor != 0 %}
+                            <div class="valor-card {{ 'success' if evento.valores.diferencaValor >= 0 else 'danger' }}">
+                                <label>Diferença</label>
+                                <div class="valor">
+                                    {{ '+' if evento.valores.diferencaValor >= 0 else '' }}R$ {{ "%.2f"|format(evento.valores.diferencaValor) }}
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                        <!-- Observações -->
+                        {% if evento.valores and evento.valores.get('observacao') %}
+                        <div class="observacoes-card mb-3">
+                            <label class="observacoes-label">
+                                <i class="fas fa-sticky-note me-2"></i>Observações:
+                            </label>
+                            <div class="observacoes-content">{{ evento.valores.observacao }}</div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Link para ver detalhes -->
+                        <a href="#" class="toggle-detalhes" onclick="toggleDetalhes({{ loop.index }}); event.stopPropagation();">
+                            <i class="fas fa-chevron-down me-1"></i>Ver detalhes técnicos
+                        </a>
+
+                        <!-- Detalhes Adicionais (expandível) -->
+                        <div id="detalhes-{{ loop.index }}" class="detalhes-extras">
+                            <!-- Informações Técnicas Expandidas -->
+                            <div class="row">
+                                {% if evento.valores and evento.valores.get('quantidadeLancamento') %}
+                                <div class="col-md-3">
+                                    <small class="text-muted">Qtd. Lançamentos:</small><br>
+                                    <strong>{{ evento.valores.quantidadeLancamento }}</strong>
+                                </div>
+                                {% endif %}
+                                {% if evento.valores and evento.valores.get('faseRemessa') %}
+                                <div class="col-md-3">
+                                    <small class="text-muted">Fase:</small><br>
+                                    <strong>{{ evento.valores.faseRemessa }}</strong>
+                                </div>
+                                {% endif %}
+                                {% if evento.valores and evento.valores.get('igpmAcumuladoReais') and evento.valores.igpmAcumuladoReais > 0 %}
+                                <div class="col-md-3">
+                                    <small class="text-muted">IGPM Acumulado:</small><br>
+                                    <strong>R$ {{ "%.2f"|format(evento.valores.igpmAcumuladoReais) }}</strong>
+                                </div>
+                                {% endif %}
+                                {% if evento.dataCriacaoCorrecao %}
+                                <div class="col-md-3">
+                                    <small class="text-muted">Data Criação:</small><br>
+                                    <strong>{{ evento.dataCriacaoCorrecao }}</strong>
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            {% if evento.detalhes_adicionais %}
+                            <div class="detalhes-card mt-3">
+                                <label class="detalhes-label">
+                                    <i class="fas fa-info-circle me-2"></i>Detalhes Técnicos:
+                                </label>
+                                <div class="detalhes-content">{{ evento.detalhes_adicionais }}</div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Ícone da timeline -->
+                <div class="timeline-icon bg-{{ evento.cor }}">
+                    <i class="fas fa-{{ evento.icone }}"></i>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-info-circle fa-3x text-muted mb-3"></i>
+            <h5 class="text-muted">Nenhuma correção monetária encontrada</h5>
+            <p class="text-muted">Esta CCO ainda não possui correções monetárias aplicadas.</p>
+        </div>
+    {% endif %}
+
+    <!-- Informações da Sessão de Correção -->
+    {% if cco.session_id %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card border-info">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-link me-2"></i>
+                        Sessão de Correção Vinculada
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <dt>Session ID:</dt>
+                            <dd><code>{{ cco.session_id }}</code></dd>
+                        </div>
+                        <div class="col-md-6">
+                            <dt>Data de Criação:</dt>
+                            <dd>
+                                {% if cco.data_criacao_correcao %}
+                                    {{ cco.data_criacao_correcao.strftime('%d/%m/%Y %H:%M') }}
+                                {% else %}
+                                    <span class="text-muted">N/A</span>
+                                {% endif %}
+                            </dd>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <button class="btn btn-info btn-sm" onclick="verMemoriaCalculo()">
+                            <i class="fas fa-external-link-alt me-1"></i>
+                            Ver Memória de Cálculo Completa
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Ações Disponíveis -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-tools me-2"></i>
+                        Ações Disponíveis
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button class="btn btn-primary" onclick="voltarDetalhes()">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Ver Detalhes da Correção
+                        </button>
+                        
+                        {% if cco.session_id %}
+                        <button class="btn btn-secondary" onclick="verMemoriaCalculo()">
+                            <i class="fas fa-calculator me-1"></i>
+                            Memória de Cálculo
+                        </button>
+                        {% endif %}
+                        
+                        <button class="btn btn-info" onclick="exportarJSON()">
+                            <i class="fas fa-download me-1"></i>
+                            Exportar JSON
+                        </button>
+                        
+                        <button class="btn btn-outline-primary" onclick="voltarPesquisa()">
+                            <i class="fas fa-search me-1"></i>
+                            Voltar à Pesquisa
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para visualização do JSON -->
+<div class="modal fade" id="modalJSON" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-code me-2"></i>
+                    JSON da CCO Corrigida
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <button class="btn btn-outline-primary btn-sm" onclick="copiarJSON()">
+                        <i class="fas fa-copy me-1"></i>
+                        Copiar JSON
+                    </button>
+                    <button class="btn btn-outline-success btn-sm" onclick="baixarJSON()">
+                        <i class="fas fa-download me-1"></i>
+                        Baixar Arquivo
+                    </button>
+                </div>
+                <pre id="jsonContent" style="max-height: 500px; overflow-y: auto; background: #f8f9fa; padding: 15px; border-radius: 5px;"><code>{{ cco_json }}</code></pre>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const ccoId = '{{ cco._id }}';
+const sessionId = '{{ cco.session_id or "" }}';
+const ccoJson = {{ cco_json|safe }};
+
+function toggleEvento(index) {
+    const body = document.getElementById(`evento-body-${index}`);
+    const content = body.closest('.timeline-content');
+    const icon = content.querySelector('.timeline-toggle-icon i');
+    
+    if (body.style.display === 'none') {
+        body.style.display = 'block';
+        content.classList.add('expanded');
+        icon.className = 'fas fa-chevron-up';
+    } else {
+        body.style.display = 'none';
+        content.classList.remove('expanded');
+        icon.className = 'fas fa-chevron-down';
+    }
+}
+
+function toggleDetalhes(index) {
+    const detalhes = document.getElementById(`detalhes-${index}`);
+    const toggle = event.target.closest('.toggle-detalhes');
+    const icon = toggle.querySelector('i');
+    
+    if (detalhes.style.display === 'none' || !detalhes.style.display) {
+        detalhes.style.display = 'block';
+        icon.className = 'fas fa-chevron-up me-1';
+        toggle.innerHTML = '<i class="fas fa-chevron-up me-1"></i>Ocultar detalhes técnicos';
+    } else {
+        detalhes.style.display = 'none';
+        icon.className = 'fas fa-chevron-down me-1';
+        toggle.innerHTML = '<i class="fas fa-chevron-down me-1"></i>Ver detalhes técnicos';
+    }
+}
+
+function expandirTodosEventos() {
+    const timelineBodies = document.querySelectorAll('[id^="evento-body-"]');
+    const timelineContents = document.querySelectorAll('.timeline-content');
+    const timelineIcons = document.querySelectorAll('.timeline-toggle-icon i');
+    
+    timelineBodies.forEach(body => {
+        body.style.display = 'block';
+    });
+    
+    timelineContents.forEach(content => {
+        content.classList.add('expanded');
+    });
+    
+    timelineIcons.forEach(icon => {
+        icon.className = 'fas fa-chevron-up';
+    });
+}
+
+function contrairTodosEventos() {
+    const timelineBodies = document.querySelectorAll('[id^="evento-body-"]');
+    const timelineContents = document.querySelectorAll('.timeline-content');
+    const timelineIcons = document.querySelectorAll('.timeline-toggle-icon i');
+    
+    timelineBodies.forEach(body => {
+        body.style.display = 'none';
+    });
+    
+    timelineContents.forEach(content => {
+        content.classList.remove('expanded');
+    });
+    
+    timelineIcons.forEach(icon => {
+        icon.className = 'fas fa-chevron-down';
+    });
+}
+
+function voltarDetalhes() {
+    window.close();
+    // Se não conseguir fechar (não foi aberta via script), redirecionar
+    setTimeout(() => {
+        window.location.href = `/ipca-promocao/detalhar/${ccoId}`;
+    }, 100);
+}
+
+function voltarPesquisa() {
+    window.close();
+    // Se não conseguir fechar, redirecionar
+    setTimeout(() => {
+        window.location.href = '{{ url_for("ipca_promocao.index") }}';
+    }, 100);
+}
+
+function verMemoriaCalculo() {
+    if (sessionId) {
+        window.open(`/ipca-promocao/memoria-calculo/${sessionId}`, '_blank');
+    } else {
+        alert('Memória de cálculo não disponível para esta correção.');
+    }
+}
+
+function exportarJSON() {
+    const modal = new bootstrap.Modal(document.getElementById('modalJSON'));
+    modal.show();
+}
+
+function copiarJSON() {
+    const content = document.getElementById('jsonContent').textContent;
+    
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(content).then(() => {
+            alert('JSON copiado para a área de transferência!');
+        }).catch(err => {
+            console.error('Erro ao copiar:', err);
+            fallbackCopyTextToClipboard(content);
+        });
+    } else {
+        fallbackCopyTextToClipboard(content);
+    }
+}
+
+function fallbackCopyTextToClipboard(text) {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = "fixed";
+    textArea.style.left = "-999999px";
+    textArea.style.top = "-999999px";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+            alert('JSON copiado para a área de transferência!');
+        } else {
+            alert('Não foi possível copiar o JSON. Selecione e copie manualmente.');
+        }
+    } catch (err) {
+        alert('Erro ao copiar. Selecione e copie manualmente.');
+    }
+    
+    document.body.removeChild(textArea);
+}
+
+function baixarJSON() {
+    const content = JSON.stringify(ccoJson, null, 2);
+    const blob = new Blob([content], { type: 'application/json' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = `cco_corrigida_${ccoId}.json`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+}
+
+function promoverCorrecao() {
+    const status = '{{ cco.status_promocao or "PENDENTE" }}';
+    
+    if (status === 'PROMOVIDA') {
+        alert('Esta correção já foi promovida para produção.');
+        return;
+    }
+    
+    if (confirm('Tem certeza que deseja promover esta correção para produção?')) {
+        const observacoes = prompt('Observações da promoção (opcional):');
+        
+        mostrarLoading();
+        
+        fetch('/ipca-promocao/api/promover', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                cco_id: ccoId,
+                user_id: 'current_user', // TODO: Implementar controle de usuário
+                observacoes: observacoes
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            esconderLoading();
+            
+            if (data.success) {
+                alert(`Correção promovida com sucesso!\n\nNova versão: ${data.nova_versao}\nData: ${new Date(data.data_promocao).toLocaleString('pt-BR')}`);
+                
+                // Recarregar página para mostrar status atualizado
+                window.location.reload();
+            } else {
+                alert('Erro na promoção: ' + (data.error || 'Erro desconhecido'));
+                if (data.motivos) {
+                    alert('Motivos:\n' + data.motivos.join('\n'));
+                }
+            }
+        })
+        .catch(error => {
+            esconderLoading();
+            console.error('Erro na promoção:', error);
+            alert('Erro ao promover correção');
+        });
+    }
+}
+
+function mostrarLoading() {
+    // Criar overlay de loading se não existir
+    if (!document.getElementById('loadingOverlay')) {
+        const overlay = document.createElement('div');
+        overlay.id = 'loadingOverlay';
+        overlay.style.cssText = `
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 9999; display: flex;
+            justify-content: center; align-items: center;
+        `;
+        overlay.innerHTML = `
+            <div class="text-center text-white">
+                <div class="spinner-border mb-3" role="status"></div>
+                <h5>Promovendo correção...</h5>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+    } else {
+        document.getElementById('loadingOverlay').style.display = 'flex';
+    }
+}
+
+function esconderLoading() {
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
+}
+
+// Melhorar a formatação do JSON no modal
+document.addEventListener('DOMContentLoaded', function() {
+    const jsonElement = document.getElementById('jsonContent');
+    if (jsonElement && ccoJson) {
+        jsonElement.innerHTML = '<code>' + JSON.stringify(ccoJson, null, 2) + '</code>';
+    }
+});
+</script>
+{% endblock %}

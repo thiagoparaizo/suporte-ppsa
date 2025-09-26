@@ -919,7 +919,7 @@ def main():
     mongo_uri = None
     mongo_uri_local = None
     database_local = "temp_recalculos"
-    salvar_resultado = True
+    salvar_resultado = False
     sobrescrever = False
     observacoes = None
     modo_correcao = "COMPLETO"
@@ -967,6 +967,11 @@ def main():
         sobrescrever=sobrescrever,
         modo_correcao=modo_correcao
     )
+    
+    #TODO verificar chamada desse método
+    print("********* PARADA FORCADA --- NANALISAR!!!! - util\\recalculo_tp.py:main()")
+    if True == True:
+        return
     
     # Determinar tipo de entrada
     if os.path.isfile(entrada):

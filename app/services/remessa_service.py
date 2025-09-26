@@ -23,11 +23,15 @@ logger = logging.getLogger(__name__)
 class RemessaAnaliseService:
     """Serviço principal para análise de remessas x CCOs"""
     
-    def __init__(self, mongo_uri: str):
+    def __init__(self, mongo_uri: str, mongo_uri_prd: str = None):
         self.client = MongoClient(mongo_uri)
         self.db = self.client.sgppServices
-        self.remessa_repo = RemessaRepository(self.db)
-        self.cco_repo = CCORepository(self.db)
+        
+        self.client_prd = MongoClient(mongo_uri_prd)
+        self.db_prd = self.client_prd.sgppServices
+        
+        self.remessa_repo = RemessaRepository(self.db_prd)
+        self.cco_repo = CCORepository(self.db_prd)
 
     def pesquisar_remessas_por_filtros(self, filtros: Dict[str, Any]) -> Dict[str, Any]:
         """

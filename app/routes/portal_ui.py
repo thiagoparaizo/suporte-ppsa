@@ -8,7 +8,7 @@ import re
 from decimal import Decimal
 import logging
 
-from app.config import MONGO_URI
+from app.config import MONGO_URI, MONGO_URI_PRD
 from app.utils.converters import processar_json_mongodb, validar_e_converter_valor_monetario, converter_decimal128_para_float, formatar_data_brasileira, formatar_data_simples
 from app.utils.cache_utils import CacheManager
 from app.services.portal_service import PortalService
@@ -18,7 +18,7 @@ portal_bp = Blueprint('portal_ui', __name__)
 logger = logging.getLogger(__name__)
 
 dados_analise = None
-portal_service = PortalService(MONGO_URI)
+portal_service = PortalService(MONGO_URI, MONGO_URI_PRD)
 
 @portal_bp.context_processor
 def inject_today_date():
@@ -432,7 +432,7 @@ def cco_timeline(cco_id):
     """Página de timeline completa da CCO"""
     # try:
     # Buscar CCO completa no MongoDB via serviço
-    cco_completa = portal_service._get_db().conta_custo_oleo_entity.find_one({"_id": cco_id})
+    cco_completa = portal_service._get_db_prd().conta_custo_oleo_entity.find_one({"_id": cco_id})
     
     if not cco_completa:
         return render_template('erro.html', 

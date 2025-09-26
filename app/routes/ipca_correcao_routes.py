@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify, render_template
+from app.config import MONGO_URI, MONGO_URI_PRD
 from app.services.ipca_correcao_orquestrador import IPCACorrectionOrchestrator
 from app.services.ipca_correcao_engine import IPCACorrectionEngine
 from app.services.ipca_gap_analyzer import IPCAGapAnalyzer
@@ -13,12 +14,15 @@ ipca_correcao_bp = Blueprint('ipca_correcao', __name__, url_prefix='/ipca-correc
 # Inicializar serviços (ajustar conforme sua configuração de DB)
 def get_services():
     # Substitua pela sua configuração de DB
-    client = MongoClient("mongodb://localhost:27017/")
+    # TODO verificar
+    client = MongoClient(MONGO_URI)
     db = client.sgppServices
+    client_prd = MongoClient(MONGO_URI_PRD)
+    db_prd = client_prd.sgppServices
     
-    gap_analyzer = IPCAGapAnalyzer(db)
-    correction_engine = IPCACorrectionEngine(db, gap_analyzer)
-    orchestrator = IPCACorrectionOrchestrator(db, gap_analyzer, correction_engine)
+    gap_analyzer = IPCAGapAnalyzer(db, db_prd)
+    correction_engine = IPCACorrectionEngine(db, db_prd, gap_analyzer)
+    orchestrator = IPCACorrectionOrchestrator(db, db_prd, gap_analyzer, correction_engine)
     
     return orchestrator
 

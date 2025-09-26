@@ -89,7 +89,7 @@ class IPCACorrectionOrchestrator:
     Coordenador principal do sistema de correção IPCA/IGPM
     """
     
-    def __init__(self, db_connection, gap_analyzer, correction_engine=None):
+    def __init__(self, db_connection, db_prd_connection, gap_analyzer, correction_engine=None):
         """
         Inicializa o orchestrator
         
@@ -99,6 +99,7 @@ class IPCACorrectionOrchestrator:
             correction_engine: Instância do IPCACorrectionEngine (será implementado)
         """
         self.db = db_connection
+        self.db_prd = db_prd_connection
         self.gap_analyzer = gap_analyzer
         self.correction_engine = correction_engine
         
@@ -371,26 +372,31 @@ class IPCACorrectionOrchestrator:
             # Aplicar baseado no cenário
             if session.scenario_detected == "CENARIO_0":
                 resultado = self.correction_engine.aplicar_correcoes_cenario_0(
+                    session.session_id,
                     session.cco_id, 
                     [asdict(c) for c in correcoes_para_aplicar]
                 )
             elif session.scenario_detected == "CENARIO_1":
                 resultado = self.correction_engine.aplicar_correcoes_cenario_1(
+                    session.session_id,
                     session.cco_id, 
                     [asdict(c) for c in correcoes_para_aplicar]
                 )
             elif session.scenario_detected == "CENARIO_2":
                 resultado = self.correction_engine.aplicar_correcoes_cenario_2(
+                    session.session_id,
                     session.cco_id, 
                     [asdict(c) for c in correcoes_para_aplicar]
                 )
             elif session.scenario_detected == "CENARIO_DUPLICATAS":
                 resultado = self.correction_engine.aplicar_correcoes_cenario_duplicatas(
+                    session.session_id,
                     session.cco_id, 
                     [asdict(c) for c in correcoes_para_aplicar]
                 )
             elif session.scenario_detected == "CENARIO_IPCA_VIGENTE":
                 resultado = self.correction_engine.aplicar_correcoes_cenario_ipca_vigente(
+                    session.session_id,
                     session.cco_id, 
                     [asdict(c) for c in correcoes_para_aplicar]
                 )
@@ -445,7 +451,7 @@ class IPCACorrectionOrchestrator:
         tem_duplicatas = len(duplicatas) > 0
         
         # Buscar CCO para análise detalhada
-        cco = self.db.conta_custo_oleo_entity.find_one({'_id': cco_id})
+        cco = self.db_prd.conta_custo_oleo_entity.find_one({'_id': cco_id})
         if not cco:
             return "CENARIO_COMPLEXO"
         
@@ -675,7 +681,7 @@ class IPCACorrectionOrchestrator:
         propostas = []
         
         # Buscar CCO para análise de duplicatas
-        cco = self.db.conta_custo_oleo_entity.find_one({'_id': session.cco_id})
+        cco = self.db_prd.conta_custo_oleo_entity.find_one({'_id': session.cco_id})
         if not cco:
             return propostas
         

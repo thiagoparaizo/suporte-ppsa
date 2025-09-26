@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 
 from pymongo import MongoClient
 
+from app.config import PESQUISA_AMBINTE_PRODUCAO
 from app.utils.converters import (
     validar_e_converter_valor_monetario,
     converter_decimal128_para_float,
@@ -22,18 +23,32 @@ logger = logging.getLogger(__name__)
 
 
 class PortalService:
-    def __init__(self, mongo_uri: str):
+    def __init__(self, mongo_uri: str, mongo_uri_prd: str = None):
         self.mongo_uri = mongo_uri
         self._client: Optional[MongoClient] = None
         self._db = None
 
+        self.mongo_uri_prd = mongo_uri_prd
+        self._client_prd: Optional[MongoClient] = None
+        self._db_prd = None
+
     # --- Infra Mongo ---
     def _get_db(self):
+        
+        if PESQUISA_AMBINTE_PRODUCAO:
+            return self._get_db_prd()
+        
         if self._db is None:
             self._client = MongoClient(self.mongo_uri)
             self._db = self._client.sgppServices
         return self._db
-
+    
+    def _get_db_prd(self):
+        if self._db_prd is None:
+            self._client_prd = MongoClient(self.mongo_uri_prd)
+            self._db_prd = self._client_prd.sgppServices
+        return self._db_prd
+    
     # --- Dashboard e estatísticas ---
     @staticmethod
     def processar_estatisticas(dados: Dict[str, Any]) -> Dict[str, Any]:
@@ -503,7 +518,7 @@ class PortalService:
 
     # --- Pesquisa de CCOs ---
     def pesquisar_ccos(self, filtros: Dict[str, Any], limite: int = 500) -> List[Dict[str, Any]]:
-        db = self._get_db()
+        
         projecao = {
             '_id': 1,
             'contratoCpp': 1,
@@ -526,7 +541,7 @@ class PortalService:
             'overHeadTotal': 1,
             'correcoesMonetarias': {'$slice': -1}
         }
-        cursor = db.conta_custo_oleo_entity.find(filtros, projecao).limit(limite)
+        cursor = self._get_db().conta_custo_oleo_entity.find(filtros, projecao).limit(limite)
         resultados = []
         for cco in cursor:
             valores_atuais = self.extrair_valores_resumidos_cco(cco)

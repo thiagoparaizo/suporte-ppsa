@@ -1,0 +1,549 @@
+<!-- templates/ipca_promocao/pesquisar_correcoes.html -->
+{% extends "base.html" %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="max-width: 1600px;">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">
+            <i class="fas fa-rocket me-2"></i>
+            Promoção de Correções IPCA/IGPM
+        </h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('portal_ui.index') }}">Portal</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('ipca_correcao.index') }}">IPCA/IGPM</a></li>
+                <li class="breadcrumb-item active">Promoção</li>
+            </ol>
+        </nav>
+    </div>
+
+    <!-- Cards de Estatísticas -->
+    <div class="row mb-4" id="estatisticasCards">
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card border-warning">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-clock text-warning fa-2x"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="fw-bold text-warning">Pendentes</div>
+                            <div class="h4 mb-0" id="countPendentes">-</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card border-success">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-check-circle text-success fa-2x"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="fw-bold text-success">Promovidas</div>
+                            <div class="h4 mb-0" id="countPromovidas">-</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card border-info">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-database text-info fa-2x"></i>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <div class="fw-bold text-info">Total</div>
+                            <div class="h4 mb-0" id="countTotal">-</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card border-primary">
+                <div class="card-body text-center">
+                    <button class="btn btn-primary" onclick="carregarEstatisticas()" id="btnEstatisticas">
+                        <i class="fas fa-sync-alt me-1"></i>
+                        Atualizar Stats
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Formulário de Filtros -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                <i class="fas fa-filter me-2"></i>
+                Filtros de Pesquisa
+            </h5>
+        </div>
+        <div class="card-body">
+            <form id="formPesquisaCorrecoes">
+                <div class="row">
+                    <!-- Pesquisa por ID -->
+                    <div class="col-lg-4 col-md-6 mb-3">
+                        <label class="form-label">ID da CCO</label>
+                        <input type="text" class="form-control" id="inputId" name="id" 
+                               placeholder="Digite o ID da CCO corrigida">
+                    </div>
+                    
+                    <!-- Contrato -->
+                    <div class="col-lg-4 col-md-6 mb-3">
+                        <label class="form-label">Contrato CPP</label>
+                        <select class="form-select" id="selectContrato" name="contratoCpp" onchange="carregarCampos()">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Campo -->
+                    <div class="col-lg-4 col-md-6 mb-3">
+                        <label class="form-label">Campo</label>
+                        <select class="form-select" id="selectCampo" name="campo">
+                            <option value="">Todos</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Remessa -->
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <label class="form-label">Remessa</label>
+                        <input type="number" class="form-control" id="inputRemessa" name="remessa" 
+                               placeholder="Número da remessa">
+                    </div>
+                    
+                    <!-- Status de Promoção -->
+                    <div class="col-lg-3 col-md-6 mb-3">
+                        <label class="form-label">Status</label>
+                        <select class="form-select" id="selectStatus" name="status_promocao">
+                            <option value="">Todos</option>
+                            <option value="PENDENTE" selected>Pendentes</option>
+                            <option value="PROMOVIDA">Promovidas</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Botões -->
+                    <div class="col-lg-6 col-md-12 mb-3 d-flex align-items-end">
+                        <button type="button" class="btn btn-primary me-2" onclick="executarPesquisa()">
+                            <i class="fas fa-search me-1"></i>Pesquisar
+                        </button>
+                        <button type="button" class="btn btn-secondary me-2" onclick="limparFiltros()">
+                            <i class="fas fa-eraser me-1"></i>Limpar
+                        </button>
+                        <button type="button" class="btn btn-info" onclick="mostrarHistorico()">
+                            <i class="fas fa-history me-1"></i>Histórico
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Resultados da Pesquisa -->
+    <div class="card" id="resultadosContainer" style="display: none;">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="fas fa-list me-2"></i>
+                Resultados da Pesquisa
+            </h5>
+            <span class="badge bg-primary" id="totalResultados">0 resultados</span>
+        </div>
+        <div class="card-body">
+            <!-- Cards de Resultados -->
+            <div class="row" id="cardsContainer">
+                <!-- Os cards serão inseridos aqui via JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+                                    background: rgba(0,0,0,0.5); z-index: 9999;">
+        <div class="d-flex justify-content-center align-items-center h-100">
+            <div class="text-center text-white">
+                <div class="spinner-border mb-3" role="status"></div>
+                <h5>Carregando...</h5>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Histórico -->
+<div class="modal fade" id="modalHistorico" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-history me-2"></i>
+                    Histórico de Promoções
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="table-responsive">
+                    <table class="table table-striped" id="tabelaHistorico">
+                        <thead>
+                            <tr>
+                                <th>CCO ID</th>
+                                <th>Contrato</th>
+                                <th>Campo</th>
+                                <th>Remessa</th>
+                                <th>Data Promoção</th>
+                                <th>Usuário</th>
+                                <th>Versão</th>
+                                <th>Observações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="corpoTabelaHistorico">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Inicialização
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('btnEstatisticas').addEventListener('click', carregarEstatisticas);
+    carregarContratos();
+    carregarEstatisticas();
+});
+
+// Carregar contratos
+function carregarContratos() {
+    fetch('/ipca-promocao/api/contratos')
+        .then(response => response.json())
+        .then(data => {
+            const select = document.getElementById('selectContrato');
+            select.innerHTML = '<option value="">Todos</option>';
+            
+            if (data.success && data.contratos) {
+                data.contratos.forEach(contrato => {
+                    select.innerHTML += `<option value="${contrato}">${contrato}</option>`;
+                });
+            }
+        })
+        .catch(error => console.error('Erro ao carregar contratos:', error));
+}
+
+// Carregar campos por contrato
+function carregarCampos() {
+    const contrato = document.getElementById('selectContrato').value;
+    const selectCampo = document.getElementById('selectCampo');
+    
+    selectCampo.innerHTML = '<option value="">Todos</option>';
+    
+    if (!contrato) return;
+    
+    fetch(`/ipca-promocao/api/campos-por-contrato/${contrato}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.campos) {
+                data.campos.forEach(campo => {
+                    selectCampo.innerHTML += `<option value="${campo}">${campo}</option>`;
+                });
+            }
+        })
+        .catch(error => console.error('Erro ao carregar campos:', error));
+}
+
+// Carregar estatísticas
+function carregarEstatisticas() {
+    fetch('/ipca-promocao/api/estatisticas')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.estatisticas) {
+                let pendentes = 0;
+                let promovidas = 0;
+                
+                data.estatisticas.forEach(stat => {
+                    if (stat._id === 'PENDENTE' || stat._id === null) {
+                        pendentes += stat.count;
+                    } else if (stat._id === 'PROMOVIDA') {
+                        promovidas += stat.count;
+                    }
+                });
+                
+                document.getElementById('countPendentes').textContent = pendentes;
+                document.getElementById('countPromovidas').textContent = promovidas;
+                document.getElementById('countTotal').textContent = pendentes + promovidas;
+            }
+        })
+        .catch(error => console.error('Erro ao carregar estatísticas:', error));
+}
+
+// Executar pesquisa
+function executarPesquisa() {
+    const form = document.getElementById('formPesquisaCorrecoes');
+    const formData = new FormData(form);
+    
+    const filtros = {};
+    formData.forEach((value, key) => {
+        if (value.trim()) filtros[key] = value.trim();
+    });
+    
+    mostrarLoading();
+    
+    fetch('/ipca-promocao/api/pesquisar', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(filtros)
+    })
+    .then(response => response.json())
+    .then(data => {
+        esconderLoading();
+        
+        if (data.success) {
+            exibirResultados(data.resultados, data.total_encontrados);
+        } else {
+            alert('Erro na pesquisa: ' + (data.error || 'Erro desconhecido'));
+        }
+    })
+    .catch(error => {
+        esconderLoading();
+        console.error('Erro na pesquisa:', error);
+        alert('Erro ao executar pesquisa');
+    });
+}
+
+// Exibir resultados
+function exibirResultados(resultados, total) {
+    const container = document.getElementById('cardsContainer');
+    const totalSpan = document.getElementById('totalResultados');
+    
+    container.innerHTML = '';
+    totalSpan.textContent = `${total} resultado${total !== 1 ? 's' : ''}`;
+    
+    if (resultados.length === 0) {
+        container.innerHTML = `
+            <div class="col-12">
+                <div class="alert alert-info text-center">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Nenhuma correção encontrada com os filtros aplicados.
+                </div>
+            </div>
+        `;
+    } else {
+        resultados.forEach(resultado => {
+            const card = criarCardResultado(resultado);
+            container.appendChild(card);
+        });
+    }
+    
+    document.getElementById('resultadosContainer').style.display = 'block';
+}
+
+// Criar card de resultado
+function criarCardResultado(resultado) {
+    const col = document.createElement('div');
+    col.className = 'col-lg-6 col-xl-4 mb-3';
+    
+    const statusClass = resultado.status_promocao === 'PROMOVIDA' ? 'success' : 'warning';
+    const statusIcon = resultado.status_promocao === 'PROMOVIDA' ? 'check-circle' : 'clock';
+    const statusText = resultado.status_promocao === 'PROMOVIDA' ? 'Promovida' : 'Pendente';
+    
+    col.innerHTML = `
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">
+                    <i class="fas fa-file-alt me-2"></i>
+                    ${resultado.id}
+                </h6>
+                <span class="badge bg-${statusClass}">
+                    <i class="fas fa-${statusIcon} me-1"></i>
+                    ${statusText}
+                </span>
+            </div>
+            <div class="card-body">
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <small class="text-muted">Contrato:</small>
+                        <div class="fw-bold">${resultado.contratoCpp}</div>
+                    </div>
+                    <div class="col-6">
+                        <small class="text-muted">Campo:</small>
+                        <div class="fw-bold">${resultado.campo}</div>
+                    </div>
+                    <div class="col-6">
+                        <small class="text-muted">Remessa:</small>
+                        <div class="fw-bold">${resultado.remessa}</div>
+                    </div>
+                    <div class="col-6">
+                        <small class="text-muted">Exercício:</small>
+                        <div class="fw-bold">${resultado.exercicio}</div>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <small class="text-muted">Valor Atual:</small>
+                    <div class="h5 mb-0 text-primary">
+                        R$ ${resultado.valor_atual?.toLocaleString('pt-BR', {minimumFractionDigits: 2}) || '0,00'}
+                    </div>
+                </div>
+                
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <small class="text-muted">Total Correções:</small>
+                        <div class="fw-bold">${resultado.total_correcoes}</div>
+                    </div>
+                    <div class="col-6">
+                        <small class="text-muted">IPCA/IGPM:</small>
+                        <div class="fw-bold">${resultado.correcoes_ipca_igpm}</div>
+                    </div>
+                </div>
+                
+                ${resultado.session_id && resultado.session_id !== 'N/A' ? `
+                <div class="mb-2">
+                    <small class="text-muted">Session ID:</small>
+                    <div class="small font-monospace">${resultado.session_id}</div>
+                </div>
+                ` : ''}
+            </div>
+            <div class="card-footer">
+                <div class="d-flex gap-1 flex-wrap">
+                    <button class="btn btn-primary btn-sm" onclick="detalharCorrecao('${resultado.id}')">
+                        <i class="fas fa-info-circle me-1"></i>Detalhar
+                    </button>
+                    <button class="btn btn-info btn-sm" onclick="abrirTimeline('${resultado.id}')">
+                        <i class="fas fa-chart-line me-1"></i>Timeline
+                    </button>
+                    ${resultado.session_id && resultado.session_id !== 'N/A' ? `
+                    <button class="btn btn-secondary btn-sm" onclick="verMemoriaCalculo('${resultado.session_id}')">
+                        <i class="fas fa-calculator me-1"></i>Memória de Cálculo
+                    </button>
+                    ` : ''}
+                    
+                </div>
+            </div>
+        </div>
+    `;
+    
+    return col;
+}
+
+// Ações dos botões
+function detalharCorrecao(ccoId) {
+    window.open(`/ipca-promocao/detalhar/${ccoId}`, '_blank');
+}
+
+function abrirTimeline(ccoId) {
+    window.open(`/ipca-promocao/timeline/${ccoId}`, '_blank');
+}
+
+function verMemoriaCalculo(sessionId) {
+    window.open(`/ipca-promocao/memoria-calculo/${sessionId}`, '_blank');
+}
+
+function promoverCorrecao(ccoId) {
+    if (confirm('Tem certeza que deseja promover esta correção para produção?')) {
+        const observacoes = prompt('Observações da promoção (opcional):');
+        
+        mostrarLoading();
+        
+        fetch('/ipca-promocao/api/promover', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                cco_id: ccoId,
+                user_id: 'current_user', // TODO: Implementar controle de usuário
+                observacoes: observacoes
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            esconderLoading();
+            
+            if (data.success) {
+                alert(`Correção promovida com sucesso!\nNova versão: ${data.nova_versao}`);
+                executarPesquisa(); // Atualizar resultados
+                carregarEstatisticas(); // Atualizar estatísticas
+            } else {
+                alert('Erro na promoção: ' + (data.error || 'Erro desconhecido'));
+            }
+        })
+        .catch(error => {
+            esconderLoading();
+            console.error('Erro na promoção:', error);
+            alert('Erro ao promover correção');
+        });
+    }
+}
+
+function mostrarHistorico() {
+    fetch('/ipca-promocao/api/historico-promocoes')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const tbody = document.getElementById('corpoTabelaHistorico');
+                tbody.innerHTML = '';
+                
+                data.historico.forEach(item => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><code>${item._id}</code></td>
+                        <td>${item.contratoCpp}</td>
+                        <td>${item.campo}</td>
+                        <td>${item.remessa}</td>
+                        <td>${new Date(item.data_promocao).toLocaleString('pt-BR')}</td>
+                        <td>${item.usuario_promocao || 'N/A'}</td>
+                        <td><span class="badge bg-info">${item.versao_promovida || 'N/A'}</span></td>
+                        <td><small>${item.observacoes_promocao || '-'}</small></td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+                
+                const modal = new bootstrap.Modal(document.getElementById('modalHistorico'));
+                modal.show();
+            } else {
+                alert('Erro ao carregar histórico: ' + (data.error || 'Erro desconhecido'));
+            }
+        })
+        .catch(error => {
+            console.error('Erro ao carregar histórico:', error);
+            alert('Erro ao carregar histórico');
+        });
+}
+
+// Funções auxiliares
+function limparFiltros() {
+    document.getElementById('formPesquisaCorrecoes').reset();
+    document.getElementById('selectCampo').innerHTML = '<option value="">Todos</option>';
+    document.getElementById('selectStatus').value = 'PENDENTE'; // Manter filtro padrão
+}
+
+function mostrarLoading() {
+    document.getElementById('loadingOverlay').style.display = 'block';
+}
+
+function esconderLoading() {
+    document.getElementById('loadingOverlay').style.display = 'none';
+}
+
+// Auto-pesquisar pendentes ao carregar
+document.addEventListener('DOMContentLoaded', function() {
+    // Aguardar um pouco para carregar os contratos
+    setTimeout(function() {
+        executarPesquisa();
+    }, 1000);
+});
+</script>
+{% endblock %}

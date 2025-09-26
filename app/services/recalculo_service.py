@@ -32,10 +32,10 @@ class ModoRecalculo:
 class RecalculoService:
     """Serviço principal para recálculo de CCOs"""
     
-    def __init__(self, mongo_uri: str, mongo_uri_local: str = None):
+    def __init__(self, mongo_uri_local: str, mongo_uri: str = None):
         self.client = MongoClient(mongo_uri)
-        self.db = self.client.sgppServices
-        self.cco_repo = CCORepository(self.db)
+        self.db_prd = self.client.sgppServices
+        self.cco_repo = CCORepository(self.db_prd)
         
         # Conexão local para salvar resultados temporários
         self.mongo_uri_local = mongo_uri_local or "mongodb://localhost:27017/"
@@ -449,7 +449,7 @@ class RecalculoService:
         nova_correcao = {
             "tipo": "RETIFICACAO",
             "subTipo": f"TP_CORRECTION_{metadata['tp_original']}_TO_{metadata['tp_correcao']}",
-            "dataCorrecao": datetime.now(),
+            "dataCorrecao": datetime.now().isoformat(),
             "dataCriacaoCorrecao": datetime.now(),
             "ativo": True,
             "observacao": f"Retificação automática TP de {metadata['tp_original']} para {metadata['tp_correcao']}",

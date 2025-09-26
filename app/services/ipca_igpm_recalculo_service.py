@@ -26,57 +26,59 @@ class IPCAIGPMRecalculoService:
     Serviço para recálculo de correções monetárias IPCA/IGPM
     """
     
-    def __init__(self, db_connection, db_local_connection=None):
+    def __init__(self, db_connection, db_connection_prd=None):
         """
         Inicializa o serviço de recálculo IPCA/IGPM
         
         Args:
-            db_connection: Conexão com MongoDB principal
             db_local_connection: Conexão com MongoDB local (temporário)
+            db_connection_prd: Conexão com MongoDB principal
+            
         """
-        self.db = db_connection
-        self.db_local = db_local_connection
+        self.db_local = db_connection
+        self.db_prd = db_connection_prd
         
-    def identificar_gaps_ipca_igpm(self, filtros: Dict[str, Any] = None) -> List[Dict[str, Any]]:
-        """
-        Identifica CCOs com gaps de correção IPCA/IGPM baseado na regra de aniversário
         
-        Args:
-            filtros: Filtros para busca de CCOs (contrato, campo, etc.)
+    # def identificar_gaps_ipca_igpm(self, filtros: Dict[str, Any] = None) -> List[Dict[str, Any]]:
+    #     """
+    #     Identifica CCOs com gaps de correção IPCA/IGPM baseado na regra de aniversário
+        
+    #     Args:
+    #         filtros: Filtros para busca de CCOs (contrato, campo, etc.)
             
-        Returns:
-            Lista de CCOs com gaps identificados
-        """
-        try:
-            # Construir query base
-            query = {'flgRecuperado': False}  # Apenas CCOs não recuperadas
-            if filtros:
-                query.update(filtros)
+    #     Returns:
+    #         Lista de CCOs com gaps identificados
+    #     """
+    #     try:
+    #         # Construir query base
+    #         query = {'flgRecuperado': False}  # Apenas CCOs não recuperadas
+    #         if filtros:
+    #             query.update(filtros)
             
-            ccos_com_gaps = []
-            data_atual = datetime.now(timezone.utc)
+    #         ccos_com_gaps = []
+    #         data_atual = datetime.now(timezone.utc)
             
-            # Buscar CCOs
-            cursor = self.db.conta_custo_oleo_entity.find(query)
+    #         # Buscar CCOs
+    #         cursor = self.db.conta_custo_oleo_entity.find(query)
             
-            for cco in cursor:
-                gaps = self._analisar_gaps_cco(cco, data_atual)
-                if gaps:
-                    ccos_com_gaps.append({
-                        '_id': cco['_id'],
-                        'contratoCpp': cco.get('contratoCpp'),
-                        'campo': cco.get('campo'),
-                        'remessa': cco.get('remessa'),
-                        'dataReconhecimento': cco.get('dataReconhecimento'),
-                        'valorAtual': self._obter_valor_atual_cco(cco),
-                        'gaps': gaps
-                    })
+    #         for cco in cursor:
+    #             gaps = self._analisar_gaps_cco(cco, data_atual)
+    #             if gaps:
+    #                 ccos_com_gaps.append({
+    #                     '_id': cco['_id'],
+    #                     'contratoCpp': cco.get('contratoCpp'),
+    #                     'campo': cco.get('campo'),
+    #                     'remessa': cco.get('remessa'),
+    #                     'dataReconhecimento': cco.get('dataReconhecimento'),
+    #                     'valorAtual': self._obter_valor_atual_cco(cco),
+    #                     'gaps': gaps
+    #                 })
             
-            return ccos_com_gaps
+    #         return ccos_com_gaps
             
-        except Exception as e:
-            logger.error(f"Erro ao identificar gaps IPCA/IGPM: {e}")
-            return []
+    #     except Exception as e:
+    #         logger.error(f"Erro ao identificar gaps IPCA/IGPM: {e}")
+    #         return []
     
     def _analisar_gaps_cco(self, cco: Dict[str, Any], data_atual: datetime) -> List[Dict[str, Any]]:
         """
@@ -408,12 +410,17 @@ class IPCAIGPMRecalculoService:
         # Obter valores base da CCO ou última correção
         valores_base = self._extrair_valores_base_cco(cco_original)
         
+        if hasattr(data_correcao, 'isoformat'):
+            data_correcao_str = data_correcao.isoformat()
+        else:
+            data_correcao_str = str(data_correcao)
+            
         correcao = {
             "tipo": tipo,
             "subTipo": "DEFAULT",
             "contrato": cco_original.get('contratoCpp', ''),
             "campo": cco_original.get('campo', ''),
-            "dataCorrecao": data_correcao,
+            "dataCorrecao": data_correcao_str,
             "dataCriacaoCorrecao": datetime.now(),
             "valorReconhecido": valores_base['valorReconhecido'],
             "valorReconhecidoComOH": Decimal128(str(round(valor_base + diferenca_correcao, 15))),
@@ -459,7 +466,7 @@ class IPCAIGPMRecalculoService:
             "subTipo": "DEFAULT",
             "contrato": cco_original.get('contratoCpp', ''),
             "campo": cco_original.get('campo', ''),
-            "dataCorrecao": datetime.now(),
+            "dataCorrecao": datetime.now().isoformat(),
             "dataCriacaoCorrecao": datetime.now(),
             "valorReconhecido": valores_base['valorReconhecido'],
             "valorReconhecidoComOH": Decimal128(str(round(novo_valor, 15))),

@@ -1,0 +1,961 @@
+<!-- templates/ipca_promocao/memoria_calculo.html -->
+{% extends "base.html" %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="max-width: 1400px;">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">
+            <i class="fas fa-calculator me-2"></i>
+            Memória de Cálculo
+        </h1>
+        <div class="d-flex gap-2">
+            <span class="badge bg-secondary fs-6">{{ memoria_calculo.session_id }}</span>
+            <button class="btn btn-outline-primary btn-sm" onclick="voltarCorrecao()">
+                <i class="fas fa-arrow-left me-1"></i>Voltar
+            </button>
+        </div>
+    </div>
+
+    <!-- Informações da Sessão -->
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Informações da Sessão de Correção
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-5">Session ID:</dt>
+                                <dd class="col-7"><code class="small">{{ memoria_calculo.session_id }}</code></dd>
+                                
+                                <dt class="col-5">CCO ID:</dt>
+                                <dd class="col-7"><code>{{ memoria_calculo.cco_id }}</code></dd>
+                                
+                                <dt class="col-5">Usuário:</dt>
+                                <dd class="col-7">{{ memoria_calculo.user_id }}</dd>
+                                
+                                <dt class="col-5">Status:</dt>
+                                <dd class="col-7">
+                                    <span class="badge bg-success">{{ memoria_calculo.status }}</span>
+                                </dd>
+                            </dl>
+                        </div>
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-5">Cenário:</dt>
+                                <dd class="col-7">
+                                    <span class="badge bg-info">{{ memoria_calculo.scenario_detected }}</span>
+                                </dd>
+                                
+                                <dt class="col-5">Criada em:</dt>
+                                <dd class="col-7">
+                                    {{ memoria_calculo.created_at }}
+                                </dd>
+                                
+                                <dt class="col-5">Aplicada em:</dt>
+                                <dd class="col-7">
+                                    {{ memoria_calculo.applied_at or 'N/A' }}
+                                </dd>
+                                
+                                <dt class="col-5">Atualizada em:</dt>
+                                <dd class="col-7">
+                                    {{ memoria_calculo.updated_at }}
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-pie me-2"></i>
+                        Resumo de Correções
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-7">Propostas:</dt>
+                        <dd class="col-5">
+                            <span class="badge bg-primary">{{ memoria_calculo.corrections_proposed|length }}</span>
+                        </dd>
+                        
+                        <dt class="col-7">Aprovadas:</dt>
+                        <dd class="col-5">
+                            <span class="badge bg-success">{{ memoria_calculo.corrections_approved|length }}</span>
+                        </dd>
+                        
+                        <dt class="col-7">Gaps:</dt>
+                        <dd class="col-5">
+                            <span class="badge bg-warning">{{ memoria_calculo.gaps_identified|length }}</span>
+                        </dd>
+                        
+                        <dt class="col-7">Fora Período:</dt>
+                        <dd class="col-5">
+                            <span class="badge bg-info">{{ memoria_calculo.corrections_fora_periodo|length }}</span>
+                        </dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Impacto Financeiro -->
+    {% if memoria_calculo.financial_impact %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-success">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-dollar-sign me-2"></i>
+                        Impacto Financeiro Total
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-3">
+                            <div class="h4 text-success mb-1">
+                                R$ {{ "%.2f"|format(memoria_calculo.financial_impact.get('total_impact', 0)) }}
+                            </div>
+                            <div class="text-muted small">Impacto Total</div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="h4 text-primary mb-1">
+                                R$ {{ "%.2f"|format(memoria_calculo.financial_impact.get('total_additions', 0)) }}
+                            </div>
+                            <div class="text-muted small">Adições IPCA</div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="h4 text-warning mb-1">
+                                R$ {{ "%.2f"|format(memoria_calculo.financial_impact.get('total_updates', 0)) }}
+                            </div>
+                            <div class="text-muted small">Atualizações</div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="h4 text-info mb-1">
+                                {{ memoria_calculo.financial_impact.get('proposals_count', 0) }}
+                            </div>
+                            <div class="text-muted small">Total Propostas</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Gaps Identificados -->
+    {% if memoria_calculo.gaps_identified %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Gaps de IPCA/IGPM Identificados
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% for cco_gap in memoria_calculo.gaps_identified %}
+                        <div class="card mb-3">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-file-alt me-2"></i>
+                                    CCO: {{ cco_gap._id }}
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                {% if cco_gap.gaps %}
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-hover">
+                                            <thead class="table-dark">
+                                                <tr>
+                                                    <th>Período</th>
+                                                    <th>Ano</th>
+                                                    <th>Mês</th>
+                                                    <th>Valor Base</th>
+                                                    <th>Taxa (%)</th>
+                                                    <th>Impacto Estimado</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for gap in cco_gap.gaps %}
+                                                <tr>
+                                                    <td>
+                                                        <span class="badge bg-warning text-dark">
+                                                            {{ gap.get('periodo_formatado', gap.get('mes', '')|string + "/" + gap.get('ano', '')|string) }}
+                                                        </span>
+                                                    </td>
+                                                    <td>{{ gap.get('ano', 'N/A') }}</td>
+                                                    <td>{{ gap.get('mes', 'N/A') }}</td>
+                                                    <td class="text-end">R$ {{ "%.2f"|format(gap.get('valor_base', 0)) }}</td>
+                                                    <td class="text-center">{{ "%.4f"|format(gap.get('taxa_aplicavel', 0)) }}%</td>
+                                                    <td class="text-end">
+                                                        <span class="fw-bold text-success">
+                                                            R$ {{ "%.2f"|format(gap.get('impacto_estimado', 0)) }}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                {% else %}
+                                    <div class="text-center py-3">
+                                        <i class="fas fa-info-circle fa-2x text-muted mb-2"></i>
+                                        <div class="text-muted">Nenhum gap específico encontrado para esta CCO.</div>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Correções Propostas -->
+    {% if memoria_calculo.corrections_proposed %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list-alt me-2"></i>
+                        Correções Propostas e Aprovadas
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-primary">
+                                <tr>
+                                    <th>Status</th>
+                                    <th>Tipo</th>
+                                    <th>Período Alvo</th>
+                                    <th>Data Aplicação</th>
+                                    <th>Valor Atual</th>
+                                    <th>Valor Proposto</th>
+                                    <th>Impacto</th>
+                                    <th>Taxa Aplicada</th>
+                                    <th>Descrição</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for proposta in memoria_calculo.corrections_proposed %}
+                                {% set is_approved = proposta.correction_id in memoria_calculo.corrections_approved %}
+                                <tr class="{{ 'table-success' if is_approved else '' }}">
+                                    <td>
+                                        <span class="badge bg-{{ 'success' if is_approved else 'secondary' }}">
+                                            <i class="fas fa-{{ 'check' if is_approved else 'clock' }} me-1"></i>
+                                            {{ 'Aprovada' if is_approved else 'Proposta' }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">{{ proposta.type }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="fw-bold">{{ proposta.target_period }}</span>
+                                    </td>
+                                    <td>
+                                        {{ proposta.target_date[:10] if proposta.target_date else 'N/A' }}
+                                    </td>
+                                    <td class="text-end">R$ {{ "%.2f"|format(proposta.current_value or 0) }}</td>
+                                    <td class="text-end">R$ {{ "%.2f"|format(proposta.proposed_value or 0) }}</td>
+                                    <td class="text-end">
+                                        <span class="fw-bold {{ 'text-success' if (proposta.impact or 0) >= 0 else 'text-danger' }}">
+                                            {{ '+' if (proposta.impact or 0) >= 0 else '' }}R$ {{ "%.2f"|format(proposta.impact or 0) }}
+                                        </span>
+                                    </td>
+                                    <td class="text-center">{{ "%.4f"|format(proposta.taxa_aplicada or 0) }}%</td>
+                                    <td class="small">
+                                        <div class="text-truncate" style="max-width: 200px;" title="{{ proposta.description or '-' }}">
+                                            {{ proposta.description or '-' }}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Correções Fora do Período -->
+    {% if memoria_calculo.corrections_fora_periodo %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        Correções Aplicadas Fora do Período
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Atenção:</strong> As correções abaixo foram aplicadas fora do período de aniversário da CCO, 
+                        o que pode indicar necessidade de revisão ou recálculo.
+                    </div>
+                    
+                    {% for cco_corr in memoria_calculo.corrections_fora_periodo %}
+                        <div class="card mb-3">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-file-alt me-2"></i>
+                                    CCO: {{ cco_corr._id }}
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                {% if cco_corr.correcoes_fora %}
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-warning">
+                                            <thead>
+                                                <tr>
+                                                    <th>Tipo</th>
+                                                    <th>Data Aplicação</th>
+                                                    <th>Período Referência</th>
+                                                    <th>Valor</th>
+                                                    <th>Motivo</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for correcao in cco_corr.correcoes_fora %}
+                                                <tr>
+                                                    <td>
+                                                        <span class="badge bg-warning text-dark">
+                                                            {{ correcao.get('tipo', 'N/A') }}
+                                                        </span>
+                                                    </td>
+                                                    <td>{{ correcao.get('dataCorrecao', 'N/A') }}</td>
+                                                    <td>{{ correcao.get('periodo_aplicado', 'N/A') }}</td>
+                                                    <td class="text-end">R$ {{ "%.2f"|format(correcao.get('valor', 0)) }}</td>
+                                                    <td class="small text-muted">
+                                                        {{ correcao.get('motivo_fora', 'Aplicada fora do período de aniversário') }}
+                                                    </td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                {% else %}
+                                    <div class="text-center py-3">
+                                        <i class="fas fa-check-circle fa-2x text-success mb-2"></i>
+                                        <div class="text-muted">Nenhuma correção fora do período para esta CCO.</div>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Regras de Negócio e Metodologia -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-info">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-cogs me-2"></i>
+                        Metodologia e Regras de Negócio Aplicadas
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-sitemap me-2"></i>Cenário Detectado:</h6>
+                            <div class="mb-3">
+                                <span class="badge bg-info fs-6">{{ memoria_calculo.scenario_detected }}</span>
+                            </div>
+                            
+                            <h6><i class="fas fa-check-circle me-2"></i>Regras Específicas do Cenário:</h6>
+                            <ul class="list-unstyled">
+                                {% if memoria_calculo.scenario_detected == 'CENARIO_0' %}
+                                    <li><i class="fas fa-arrow-right text-success me-2"></i>Gap simples sem correções posteriores</li>
+                                    <li><i class="fas fa-arrow-right text-success me-2"></i>Aplicação direta de IPCA/IGPM nos períodos identificados</li>
+                                    <li><i class="fas fa-arrow-right text-success me-2"></i>Sem necessidade de recálculo de correções posteriores</li>
+                                {% elif memoria_calculo.scenario_detected == 'CENARIO_1' %}
+                                    <li><i class="fas fa-arrow-right text-warning me-2"></i>Gap com correção posterior identificada</li>
+                                    <li><i class="fas fa-arrow-right text-warning me-2"></i>Recálculo de correções posteriores necessário</li>
+                                    <li><i class="fas fa-arrow-right text-warning me-2"></i>Aplicação de correções de atualização</li>
+                                {% elif memoria_calculo.scenario_detected == 'CENARIO_2' %}
+                                    <li><i class="fas fa-arrow-right text-info me-2"></i>Gap com recuperação posterior</li>
+                                    <li><i class="fas fa-arrow-right text-info me-2"></i>Aplicação de compensação</li>
+                                    <li><i class="fas fa-arrow-right text-info me-2"></i>Possível reativação da CCO</li>
+                                {% elif memoria_calculo.scenario_detected == 'CENARIO_DUPLICATAS' %}
+                                    <li><i class="fas fa-arrow-right text-danger me-2"></i>Correções IPCA/IGPM duplicadas identificadas</li>
+                                    <li><i class="fas fa-arrow-right text-danger me-2"></i>Remoção de duplicatas e ajuste de valores</li>
+                                    <li><i class="fas fa-arrow-right text-danger me-2"></i>Recálculo de correções posteriores</li>
+                                {% elif memoria_calculo.scenario_detected == 'CENARIO_IPCA_VIGENTE' %}
+                                    <li><i class="fas fa-arrow-right text-primary me-2"></i>Aplicação de IPCA do ano vigente</li>
+                                    <li><i class="fas fa-arrow-right text-primary me-2"></i>Verificação de data de aniversário atual</li>
+                                    <li><i class="fas fa-arrow-right text-primary me-2"></i>Correção baseada em taxa mais recente</li>
+                                {% else %}
+                                    <li><i class="fas fa-question-circle text-secondary me-2"></i>Cenário: {{ memoria_calculo.scenario_detected }}</li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-calculator me-2"></i>Parâmetros de Cálculo:</h6>
+                            <ul class="list-unstyled mb-3">
+                                <li><i class="fas fa-calendar text-primary me-2"></i><strong>Regra de Aniversário:</strong> Correções aplicadas no mês de aniversário da CCO</li>
+                                <li><i class="fas fa-percentage text-success me-2"></i><strong>Taxa de Referência:</strong> Utilizada taxa do mês anterior ao aniversário</li>
+                                <li><i class="fas fa-chart-line text-info me-2"></i><strong>Cálculo de Impacto:</strong> Diferença entre valor atual e valor corrigido</li>
+                                <li><i class="fas fa-sync-alt text-warning me-2"></i><strong>Efeito Cascata:</strong> Correções posteriores recalculadas quando necessário</li>
+                            </ul>
+                            
+                            <h6><i class="fas fa-shield-alt me-2"></i>Validações Realizadas:</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="fas fa-check text-success me-2"></i>Verificação de sequência temporal das correções</li>
+                                <li><i class="fas fa-check text-success me-2"></i>Validação de valores monetários positivos</li>
+                                <li><i class="fas fa-check text-success me-2"></i>Verificação de consistência das taxas aplicadas</li>
+                                <li><i class="fas fa-check text-success me-2"></i>Controle de dependências entre correções</li>
+                                <li><i class="fas fa-check text-success me-2"></i>Validação de períodos de aplicação</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dados Técnicos da Sessão -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-code me-2"></i>
+                        Dados Técnicos da Sessão
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Identificadores Únicos:</h6>
+                            <table class="table table-sm table-borderless">
+                                <tr>
+                                    <td class="fw-bold">Session ID:</td>
+                                    <td><code class="small">{{ memoria_calculo.session_id }}</code></td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-bold">CCO ID:</td>
+                                    <td><code>{{ memoria_calculo.cco_id }}</code></td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-bold">Usuário:</td>
+                                    <td>{{ memoria_calculo.user_id }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-bold">Status Final:</td>
+                                    <td><span class="badge bg-success">{{ memoria_calculo.status }}</span></td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Timestamps do Processo:</h6>
+                            <table class="table table-sm table-borderless">
+                                <tr>
+                                    <td class="fw-bold">Criação:</td>
+                                    <td>{{ memoria_calculo.created_at }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-bold">Última Atualização:</td>
+                                    <td>{{ memoria_calculo.updated_at }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-bold">Aplicação:</td>
+                                    <td>
+                                        {% if memoria_calculo.applied_at %}
+                                            <span class="text-success">{{ memoria_calculo.applied_at }}</span>
+                                        {% else %}
+                                            <span class="text-muted">Não aplicada</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mensagens de Erro (se houver) -->
+    {% if memoria_calculo.error_message %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="alert alert-danger">
+                <h6>
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Erro Registrado na Sessão
+                </h6>
+                <p class="mb-0 font-monospace">{{ memoria_calculo.error_message }}</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Ações Disponíveis -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card bg-light">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-tools me-2"></i>
+                        Ações Disponíveis
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex gap-2 flex-wrap">
+                        <button class="btn btn-primary" onclick="voltarCorrecao()">
+                            <i class="fas fa-arrow-left me-1"></i>
+                            Voltar à Correção
+                        </button>
+                        
+                        <button class="btn btn-info" onclick="exportarMemoriaJSON()">
+                            <i class="fas fa-download me-1"></i>
+                            Exportar Memória (JSON)
+                        </button>
+                        
+                        <button class="btn btn-secondary" onclick="imprimirMemoria()">
+                            <i class="fas fa-print me-1"></i>
+                            Imprimir Memória
+                        </button>
+                        
+                        <button class="btn btn-outline-primary" onclick="voltarPesquisa()">
+                            <i class="fas fa-search me-1"></i>
+                            Voltar à Pesquisa
+                        </button>
+                        
+                        <button class="btn btn-outline-secondary" onclick="window.close()">
+                            <i class="fas fa-times me-1"></i>
+                            Fechar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const sessionId = '{{ memoria_calculo.session_id }}';
+const ccoId = '{{ memoria_calculo.cco_id }}';
+const memoriaCalculo = {{ memoria_calculo|tojson|safe }};
+
+function voltarCorrecao() {
+    window.close();
+    // Se não conseguir fechar, redirecionar
+    setTimeout(() => {
+        window.location.href = `/ipca-promocao/detalhar/${ccoId}`;
+    }, 100);
+}
+
+function voltarPesquisa() {
+    window.close();
+    // Se não conseguir fechar, redirecionar
+    setTimeout(() => {
+        window.location.href = '{{ url_for("ipca_promocao.index") }}';
+    }, 100);
+}
+
+function exportarMemoriaJSON() {
+    const content = JSON.stringify(memoriaCalculo, null, 2);
+    const blob = new Blob([content], { type: 'application/json' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = `memoria_calculo_${sessionId}.json`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+}
+
+function imprimirMemoria() {
+    // Ocultar elementos que não devem aparecer na impressão
+    const actionsCard = document.querySelector('.card.bg-light:last-child');
+    if (actionsCard) {
+        const originalDisplay = actionsCard.style.display;
+        actionsCard.style.display = 'none';
+        
+        // Configurar título da página para impressão
+        const originalTitle = document.title;
+        document.title = `Memória de Cálculo - ${sessionId}`;
+        
+        // Imprimir
+        window.print();
+        
+        // Restaurar elementos
+        actionsCard.style.display = originalDisplay;
+        document.title = originalTitle;
+    } else {
+        window.print();
+    }
+}
+
+// Inicialização da página
+document.addEventListener('DOMContentLoaded', function() {
+    // Destacar correções aprovadas na tabela
+    const tabelaCorrecoes = document.querySelector('table');
+    if (tabelaCorrecoes) {
+        const rows = tabelaCorrecoes.querySelectorAll('tbody tr');
+        rows.forEach(row => {
+            const statusBadge = row.querySelector('.badge');
+            if (statusBadge && statusBadge.textContent.includes('Aprovada')) {
+                row.style.backgroundColor = 'rgba(25, 135, 84, 0.1)';
+                row.style.borderLeft = '4px solid #198754';
+            }
+        });
+    }
+    
+    // Adicionar tooltips informativos
+    const badges = document.querySelectorAll('.badge');
+    badges.forEach(badge => {
+        if (badge.textContent.includes('CENARIO_')) {
+            let tooltip = '';
+            switch(badge.textContent.trim()) {
+                case 'CENARIO_0':
+                    tooltip = 'Gap simples - Aplicação direta de correções';
+                    break;
+                case 'CENARIO_1':
+                    tooltip = 'Gap com correção posterior - Necessário recálculo';
+                    break;
+                case 'CENARIO_2':
+                    tooltip = 'Gap com recuperação - Compensação aplicada';
+                    break;
+                case 'CENARIO_DUPLICATAS':
+                    tooltip = 'Remoção de correções duplicadas';
+                    break;
+                case 'CENARIO_IPCA_VIGENTE':
+                    tooltip = 'Aplicação de IPCA do ano corrente';
+                    break;
+            }
+            if (tooltip) {
+                badge.title = tooltip;
+                badge.style.cursor = 'help';
+            }
+        }
+    });
+    
+    // Formatar valores monetários se necessário
+    const valorElements = document.querySelectorAll('[data-format="currency"]');
+    valorElements.forEach(el => {
+        const valor = parseFloat(el.textContent.replace(/[^\d.-]/g, ''));
+        if (!isNaN(valor)) {
+            el.textContent = `R$ ${valor.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+        }
+    });
+    
+    // Destacar linhas com impacto positivo/negativo
+    const impactoElements = document.querySelectorAll('td:contains("R$")');
+    impactoElements.forEach(el => {
+        if (el.textContent.includes('+')) {
+            el.classList.add('text-success', 'fw-bold');
+        } else if (el.textContent.includes('-')) {
+            el.classList.add('text-danger', 'fw-bold');
+        }
+    });
+});
+
+// Função para mostrar/ocultar seções
+function toggleSection(sectionId) {
+    const section = document.getElementById(sectionId);
+    if (section) {
+        section.style.display = section.style.display === 'none' ? 'block' : 'none';
+    }
+}
+
+// Função para calcular totais das tabelas
+function calcularTotaisTabela() {
+    const tabelas = document.querySelectorAll('table');
+    tabelas.forEach((tabela, index) => {
+        const rows = tabela.querySelectorAll('tbody tr');
+        let totalImpacto = 0;
+        let contador = 0;
+        
+        rows.forEach(row => {
+            const impactoCell = row.querySelector('td:nth-last-child(3)'); // Coluna de impacto
+            if (impactoCell) {
+                const valor = parseFloat(impactoCell.textContent.replace(/[^\d.-]/g, ''));
+                if (!isNaN(valor)) {
+                    totalImpacto += valor;
+                    contador++;
+                }
+            }
+        });
+        
+        // Adicionar linha de total se houver valores
+        if (contador > 0) {
+            const tbody = tabela.querySelector('tbody');
+            const totalRow = document.createElement('tr');
+            totalRow.classList.add('table-secondary', 'fw-bold');
+            totalRow.innerHTML = `
+                <td colspan="${tabela.querySelectorAll('thead th').length - 2}" class="text-end">
+                    <strong>Total (${contador} itens):</strong>
+                </td>
+                <td class="text-end">
+                    <strong>R$ ${totalImpacto.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</strong>
+                </td>
+                <td></td>
+            `;
+            tbody.appendChild(totalRow);
+        }
+    });
+}
+
+// Executar cálculo de totais após carregar a página
+setTimeout(calcularTotaisTabela, 500);
+</script>
+{% endblock %}
+
+{% block styles %}
+<style>
+/* Estilos para impressão */
+@media print {
+    .btn, .card.bg-light:last-child {
+        display: none !important;
+    }
+    
+    .card {
+        border: 1px solid #dee2e6 !important;
+        margin-bottom: 1rem !important;
+        page-break-inside: avoid;
+    }
+    
+    .badge {
+        border: 1px solid currentColor;
+        color: #000 !important;
+        background-color: transparent !important;
+    }
+    
+    .table {
+        font-size: 0.85rem;
+    }
+    
+    .card-header {
+        background-color: #f8f9fa !important;
+        border-bottom: 2px solid #dee2e6 !important;
+    }
+}
+
+/* Estilos gerais */
+.table-sm td, .table-sm th {
+    padding: 0.25rem 0.5rem;
+}
+
+.card-header h6 {
+    color: inherit;
+    font-weight: 600;
+}
+
+.badge.fs-6 {
+    font-size: 0.875rem !important;
+    padding: 0.5em 0.75em;
+}
+
+code.small {
+    font-size: 0.75rem;
+    word-break: break-all;
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 0.25rem;
+    padding: 0.25em 0.5em;
+}
+
+/* Melhorar legibilidade das tabelas */
+.table-hover tbody tr:hover {
+    background-color: rgba(0,0,0,.05);
+}
+
+.table-success {
+    background-color: rgba(25, 135, 84, 0.1) !important;
+}
+
+.table-warning {
+    background-color: rgba(255, 193, 7, 0.1) !important;
+}
+
+/* Destacar valores monetários */
+.text-success.fw-bold, .text-danger.fw-bold {
+    font-size: 1.05em;
+}
+
+.text-end {
+    text-align: right !important;
+}
+
+.text-center {
+    text-align: center !important;
+}
+
+/* Melhorar espaçamento entre seções */
+.row.mb-4:not(:last-child) {
+    border-bottom: 1px solid #e9ecef;
+    padding-bottom: 1.5rem;
+    margin-bottom: 1.5rem !important;
+}
+
+/* Estilos para badges de cenário */
+.badge[title] {
+    cursor: help;
+    border-bottom: 1px dashed;
+}
+
+/* Destaque para correções aprovadas */
+tr.table-success {
+    border-left: 4px solid #198754;
+    background-color: rgba(25, 135, 84, 0.08) !important;
+}
+
+/* Melhorar contraste dos headers */
+.card-header.bg-success,
+.card-header.bg-info,
+.card-header.bg-warning {
+    font-weight: 600;
+}
+
+/* Estilos para códigos técnicos */
+code {
+    background-color: #f1f3f4;
+    border: 1px solid #dadce0;
+    border-radius: 4px;
+    color: #1a73e8;
+    font-family: 'Roboto Mono', monospace;
+    font-size: 0.875em;
+    padding: 0.125em 0.25em;
+}
+
+/* Responsividade para tabelas */
+.table-responsive {
+    border-radius: 0.375rem;
+    border: 1px solid #dee2e6;
+}
+
+/* Destacar seções importantes */
+.alert {
+    border-left: 4px solid;
+}
+
+.alert-warning {
+    border-left-color: #ffc107;
+}
+
+.alert-danger {
+    border-left-color: #dc3545;
+}
+
+/* Melhorar aparência dos ícones */
+.fas {
+    width: 1em;
+    text-align: center;
+}
+
+/* Estilos para listas de regras */
+ul.list-unstyled li {
+    margin-bottom: 0.25rem;
+    padding-left: 0.5rem;
+}
+
+/* Melhorar aparência dos cards aninhados */
+.card .card {
+    border: 1px solid #e9ecef;
+    box-shadow: none;
+}
+
+.card .card .card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+    font-size: 0.9rem;
+}
+
+/* Ajustes para telas pequenas */
+@media (max-width: 768px) {
+    .table-responsive {
+        font-size: 0.85rem;
+    }
+    
+    .card-body {
+        padding: 0.75rem;
+    }
+    
+    .row.mb-4 {
+        margin-bottom: 1rem !important;
+    }
+    
+    .d-flex.gap-2.flex-wrap {
+        gap: 0.5rem !important;
+    }
+    
+    .btn {
+        font-size: 0.875rem;
+        padding: 0.375rem 0.75rem;
+    }
+}
+
+/* Melhorar contraste para acessibilidade */
+.text-muted {
+    color: #6c757d !important;
+}
+
+.small, small {
+    font-size: 0.875em;
+    line-height: 1.25;
+}
+
+/* Animações sutis */
+.card {
+    transition: box-shadow 0.15s ease-in-out;
+}
+
+.card:hover {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+.btn {
+    transition: all 0.15s ease-in-out;
+}
+
+/* Ajustes finais */
+.container-fluid {
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+.badge {
+    font-weight: 500;
+    letter-spacing: 0.025em;
+}
+
+.fw-bold {
+    font-weight: 600 !important;
+}
+
+.h4 {
+    font-weight: 600;
+}
+</style>
+{% endblock %}

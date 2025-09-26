@@ -1,0 +1,699 @@
+<!-- templates/ipca_promocao/detalhar_correcao.html -->
+{% extends "base.html" %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid" style="max-width: 1400px;">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3">
+            <i class="fas fa-info-circle me-2"></i>
+            Detalhes da Correção
+        </h1>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('portal_ui.index') }}">Portal</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('ipca_promocao.index') }}">Promoção IPCA</a></li>
+                <li class="breadcrumb-item active">Detalhes</li>
+            </ol>
+        </nav>
+    </div>
+
+    <!-- Informações da CCO -->
+    <div class="row mb-4">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header" style="display: flex;">
+                    <h5 class="mb-0">
+                        <i class="fas fa-file-alt me-2"></i>
+                        Informações da CCO:  <code>{{ cco_corrigida._id }}</code>
+                    </h5>
+                    <button class="btn btn-sm btn-outline-info ms-2" onclick="mostrarDetalhesCompletos()" title="Ver detalhes completos da CCO">
+                        <i class="fas fa-info-circle"></i>
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-5">Contrato CPP:</dt>
+                                <dd class="col-7">{{ cco_corrigida.contratoCpp }}</dd>
+                                
+                                <dt class="col-5">Campo:</dt>
+                                <dd class="col-7">{{ cco_corrigida.campo }}</dd>
+                                
+                                <dt class="col-5">Remessa:</dt>
+                                <dd class="col-7">{{ cco_corrigida.remessa }} ({{cco_corrigida.remessaExposicao}})</dd>
+                                
+                                <dt class="col-5">Data Reconhecimento:</dt>
+                                <dd class="col-7">{{ cco_corrigida.dataReconhecimento }}</dd>
+                                
+                                <dt class="col-5">Fase:</dt>
+                                <dd class="col-7">{{ cco_corrigida.faseRemessa }}</dd>
+                            </dl>
+                        </div>
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-5">Status Correção:</dt>
+                                <dd class="col-7">
+                                    {% set status = cco_corrigida.status_promocao or 'PENDENTE' %}
+                                    <span class="badge bg-{{ 'success' if status == 'PROMOVIDA' else 'warning' }}">
+                                        <i class="fas fa-{{ 'check-circle' if status == 'PROMOVIDA' else 'clock' }} me-1"></i>
+                                        {{ status }}
+                                    </span>
+                                </dd>
+                                
+                                <dt class="col-5">Recuperada:</dt>
+                                <dd class="col-7">
+                                    <span class="badge bg-{{ 'danger' if cco_corrigida.flgRecuperado else 'success' }}">
+                                        {{ 'Sim' if cco_corrigida.flgRecuperado else 'Não' }}
+                                    </span>
+                                </dd>
+                                
+                                <dt class="col-5">Session ID:</dt>
+                                <dd class="col-7">
+                                    {% if cco_corrigida.session_id %}
+                                        <code class="small">{{ cco_corrigida.session_id }}</code>
+                                    {% else %}
+                                        <span class="text-muted">N/A</span>
+                                    {% endif %}
+                                </dd>
+                                
+                                <dt class="col-5">Criada em:</dt>
+                                <dd class="col-7">
+                                    {% if cco_corrigida.data_criacao_correcao %}
+                                        {{ cco_corrigida.data_criacao_correcao }}
+                                    {% else %}
+                                        <span class="text-muted">N/A</span>
+                                    {% endif %}
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-tools me-2"></i>
+                        Ações Disponíveis
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-info" onclick="abrirTimeline()">
+                            <i class="fas fa-chart-line me-2"></i>
+                            Ver Timeline
+                        </button>
+                        
+                        {% if cco_corrigida.session_id %}
+                        <button class="btn btn-secondary" onclick="verMemoriaCalculo()">
+                            <i class="fas fa-calculator me-2"></i>
+                            Memória de Cálculo
+                        </button>
+                        {% endif %}
+                        
+                        {% if cco_original %}
+                        <button class="btn btn-warning" onclick="compararCCOs()">
+                            <i class="fas fa-columns me-2"></i>
+                            Comparar CCOs
+                        </button>
+                        {% endif %}
+                        
+                        {% if pode_promover.pode_promover and (cco_corrigida.status_promocao or 'PENDENTE') != 'PROMOVIDA' %}
+                        <button class="btn btn-success" onclick="promoverCorrecao()">
+                            <i class="fas fa-rocket me-2"></i>
+                            Promover para Produção
+                        </button>
+                        {% endif %}
+                        
+                        <button class="btn btn-outline-primary" onclick="voltarPesquisa()">
+                            <i class="fas fa-arrow-left me-2"></i>
+                            Voltar à Pesquisa
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Validação de Promoção -->
+    {% if not pode_promover.pode_promover or pode_promover.avisos %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Status da Validação
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if not pode_promover.pode_promover %}
+                        <div class="alert alert-danger">
+                            <h6><i class="fas fa-times-circle me-2"></i>Promoção Bloqueada</h6>
+                            <ul class="mb-0">
+                                {% for motivo in pode_promover.motivos_bloqueio %}
+                                <li>{{ motivo }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    {% endif %}
+                    
+                    {% if pode_promover.avisos %}
+                        <div class="alert alert-warning">
+                            <h6><i class="fas fa-exclamation-triangle me-2"></i>Avisos</h6>
+                            <ul class="mb-0">
+                                {% for aviso in pode_promover.avisos %}
+                                <li>{{ aviso }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    {% endif %}
+                    
+                    {% if pode_promover.pode_promover %}
+                        <div class="alert alert-success">
+                            <i class="fas fa-check-circle me-2"></i>
+                            Esta correção pode ser promovida para produção.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Comparativo de Valores -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-balance-scale me-2"></i>
+                        Comparativo de Valores
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <!-- CCO Original -->
+                        <div class="col-md-6">
+                            <h6 class="text-muted">
+                                <i class="fas fa-database me-2"></i>
+                                CCO Original (Produção)
+                            </h6>
+                            {% if cco_original %}
+                                {% set correcoes_orig = cco_original.correcoesMonetarias or [] %}
+                                {% set ultima_orig = correcoes_orig[-1] if correcoes_orig else cco_original %}
+                                
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <dl class="row mb-0">
+                                            <dt class="col-6">Valor Reconhecido:</dt>
+                                            <dd class="col-6">
+                                                R$ {{ "%.2f"|format(ultima_orig.valorReconhecidoComOH.to_decimal() if ultima_orig.valorReconhecidoComOH else 0) }}
+                                            </dd>
+                                            
+                                            <dt class="col-6">Total Correções:</dt>
+                                            <dd class="col-6">{{ correcoes_orig|length }}</dd>
+                                            
+                                            <dt class="col-6">IPCA/IGPM:</dt>
+                                            <dd class="col-6">
+                                                {{ correcoes_orig|selectattr('tipo', 'in', ['IPCA', 'IGPM'])|list|length }}
+                                            </dd>
+                                            
+                                            <dt class="col-6">Recuperada:</dt>
+                                            <dd class="col-6">
+                                                <span class="badge bg-{{ 'danger' if cco_original.flgRecuperado else 'success' }}">
+                                                    {{ 'Sim' if cco_original.flgRecuperado else 'Não' }}
+                                                </span>
+                                            </dd>
+
+                                            <dt class="col-6">Versão:</dt>
+                                            <dd class="col-6">{{ cco_original.version or 1 }}</dd>
+                                            
+                                        </dl>
+                                    </div>
+                                </div>
+                            {% else %}
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    CCO original não encontrada na produção.
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- CCO Corrigida -->
+                        <div class="col-md-6">
+                            <h6 class="text-muted">
+                                <i class="fas fa-edit me-2"></i>
+                                CCO Corrigida (Temporária)
+                            </h6>
+                            {% set correcoes_corr = cco_corrigida.correcoesMonetarias or [] %}
+                            {% set ultima_corr = correcoes_corr[-1] if correcoes_corr else cco_corrigida %}
+                            
+                            <div class="card bg-primary text-white">
+                                <div class="card-body">
+                                    <dl class="row mb-0">
+                                        <dt class="col-6">Valor Reconhecido:</dt>
+                                        <dd class="col-6">
+                                            R$ {{ "%.2f"|format(ultima_corr.valorReconhecidoComOH.to_decimal() if ultima_corr.valorReconhecidoComOH else 0) }}
+                                        </dd>
+                                        
+                                        <dt class="col-6">Total Correções:</dt>
+                                        <dd class="col-6">{{ correcoes_corr|length }}</dd>
+                                        
+                                        <dt class="col-6">IPCA/IGPM:</dt>
+                                        <dd class="col-6">
+                                            {{ correcoes_corr|selectattr('tipo', 'in', ['IPCA', 'IGPM'])|list|length }}
+                                        </dd>
+                                        
+                                        <dt class="col-6">Recuperada:</dt>
+                                        <dd class="col-6">
+                                            <span class="badge bg-{{ 'light text-dark' if cco_corrigida.flgRecuperado else 'success' }}">
+                                                {{ 'Sim' if cco_corrigida.flgRecuperado else 'Não' }}
+                                            </span>
+                                        </dd>
+                                        <dt class="col-6">Versão:</dt>
+                                        <dd class="col-6">{{ cco_corrigida.version or 1 }}</dd>
+                                    </dl>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Diferença -->
+                    {% if cco_original and correcoes_orig and correcoes_corr %}
+                        {% set valor_orig = correcoes_orig[-1].valorReconhecidoComOH.to_decimal() if correcoes_orig[-1].valorReconhecidoComOH else 0 %}
+                        {% set valor_corr = correcoes_corr[-1].valorReconhecidoComOH.to_decimal() if correcoes_corr[-1].valorReconhecidoComOH else 0 %}
+                        {% set diferenca = valor_corr - valor_orig %}
+                        
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <div class="alert alert-{{ 'success' if diferenca >= 0 else 'danger' }}">
+                                    <h6 class="mb-2">
+                                        <i class="fas fa-{{ 'arrow-up' if diferenca >= 0 else 'arrow-down' }} me-2"></i>
+                                        Impacto da Correção
+                                    </h6>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <strong>Diferença de Valor:</strong><br>
+                                            <span class="h5">R$ {{ "%.2f"|format(diferenca) }}</span>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <strong>Novas Correções:</strong><br>
+                                            <span class="h5">{{ correcoes_corr|length - correcoes_orig|length }}</span>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <strong>Percentual:</strong><br>
+                                            <span class="h5">
+                                                {% if valor_orig > 0 %}
+                                                    {{ "%.2f"|format((diferenca / valor_orig) * 100) }}%
+                                                {% else %}
+                                                    N/A
+                                                {% endif %}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Memória de Cálculo (se disponível) -->
+    {% if sessao_correcao %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-calculator me-2"></i>
+                        Resumo da Memória de Cálculo
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <dt>Cenário Detectado:</dt>
+                            <dd>
+                                <span class="badge bg-info">{{ sessao_correcao.scenario_detected }}</span>
+                            </dd>
+                        </div>
+                        <div class="col-md-3">
+                            <dt>Status da Sessão:</dt>
+                            <dd>
+                                <span class="badge bg-success">{{ sessao_correcao.status }}</span>
+                            </dd>
+                        </div>
+                        <div class="col-md-3">
+                            <dt>Correções Propostas:</dt>
+                            <dd>{{ sessao_correcao.corrections_proposed|length }}</dd>
+                        </div>
+                        <div class="col-md-3">
+                            <dt>Correções Aprovadas:</dt>
+                            <dd>{{ sessao_correcao.corrections_approved|length }}</dd>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-4">
+                            <dt>Usuário:</dt>
+                            <dd>{{ sessao_correcao.user_id }}</dd>
+                        </div>
+                        <div class="col-md-4">
+                            <dt>Criada em:</dt>
+                            <dd>{% if sessao_correcao.created_at %}
+                                    {{ sessao_correcao.created_at.replace(tzinfo=None).strftime('%d/%m/%Y %H:%M') }}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                                </dd>
+                        </div>
+                        <div class="col-md-4">
+                            <dt>Aplicada em:</dt>
+                            <dd>{% if sessao_correcao.applied_at %}
+                                    {{ sessao_correcao.applied_at.replace(tzinfo=None).strftime('%d/%m/%Y %H:%M') }}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                                
+                                
+                            </dd>
+                        </div>
+                    </div>
+                    
+                    {% if sessao_correcao.financial_impact %}
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <dt>Impacto Financeiro Total:</dt>
+                            <dd class="h5 text-success">
+                                R$ {{ "%.2f"|format(sessao_correcao.financial_impact.total_impact or 0) }}
+                            </dd>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mt-3">
+                        <button class="btn btn-outline-primary" onclick="verMemoriaCalculo()">
+                            <i class="fas fa-external-link-alt me-2"></i>
+                            Ver Detalhes Completos
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Informações de Promoção (se já promovida) -->
+    {% if cco_corrigida.status_promocao == 'PROMOVIDA' %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-success">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-check-circle me-2"></i>
+                        Informações da Promoção
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <dt>Data da Promoção:</dt>
+                            <dd>
+                                {% if cco_corrigida.data_promocao %}
+                                    {{ cco_corrigida.data_promocao }}
+                                {% else %}
+                                    <span class="text-muted">N/A</span>
+                                {% endif %}
+                            </dd>
+                        </div>
+                        <div class="col-md-3">
+                            <dt>Usuário:</dt>
+                            <dd>{{ cco_corrigida.usuario_promocao or 'N/A' }}</dd>
+                        </div>
+                        <div class="col-md-3">
+                            <dt>Versão Gerada:</dt>
+                            <dd>
+                                {% if cco_corrigida.versao_promovida %}
+                                    <span class="badge bg-info">{{ cco_corrigida.versao_promovida }}</span>
+                                {% else %}
+                                    <span class="text-muted">N/A</span>
+                                {% endif %}
+                            </dd>
+                        </div>
+                        <div class="col-md-3">
+                            <dt>Observações:</dt>
+                            <dd>{{ cco_corrigida.observacoes_promocao or '-' }}</dd>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal de Promoção -->
+<div class="modal fade" id="modalPromocao" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-rocket me-2"></i>
+                    Promover Correção
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Atenção!</strong> Esta ação irá aplicar a correção na CCO de produção e não pode ser desfeita.
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label">Observações da Promoção</label>
+                    <textarea class="form-control" id="observacoesPromocao" rows="3" 
+                              placeholder="Digite observações sobre a promoção (opcional)"></textarea>
+                </div>
+                
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="confirmacaoPromocao">
+                    <label class="form-check-label" for="confirmacaoPromocao">
+                        Confirmo que revisei os dados e desejo promover esta correção
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" onclick="confirmarPromocao()">
+                    <i class="fas fa-rocket me-2"></i>Promover
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Detalhes Completos -->
+<div class="modal fade" id="modalDetalhesCompletos" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-database me-2"></i>
+                    Detalhes Completos da CCO
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Informações Gerais:</h6>
+                        <dl class="row small">
+                            <dt class="col-4">Data Lançamento:</dt>
+                            <dd class="col-8">{{ cco_corrigida.dataLancamento if cco_corrigida.dataLancamento else 'N/A' }}</dd>
+                            
+                            <dt class="col-4">mesAnoReferencia:</dt>
+                            <dd class="col-8">{{ cco_corrigida.mesAnoReferencia }}</dd>
+
+                            <dt class="col-4">Período:</dt>
+                            <dd class="col-8">{{ cco_corrigida.periodo }}</dd>
+                            
+                            <dt class="col-4">Origem Gastos:</dt>
+                            <dd class="col-8">{{ cco_corrigida.origemDosGastos }}</dd>
+                            
+                            <dt class="col-4">Versão:</dt>
+                            <dd class="col-8">{{ cco_corrigida.version or 1 }}</dd>
+                            
+                            <dt class="col-4">Quantidade Lançamentos:</dt>
+                            <dd class="col-8">{{ cco_corrigida.quantidadeLancamento }}</dd>
+                        </dl>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Valores Detalhados:</h6>
+                        <dl class="row small">
+                            <dt class="col-6">Valor Total:</dt>
+                            <dd class="col-6">R$ {{ "%.2f"|format(cco_corrigida.valorLancamentoTotal.to_decimal() if cco_corrigida.valorLancamentoTotal else 0) }}</dd>
+                            
+                            <dt class="col-6">Reconhecível:</dt>
+                            <dd class="col-6">R$ {{ "%.2f"|format(cco_corrigida.valorReconhecivel.to_decimal() if cco_corrigida.valorReconhecivel else 0) }}</dd>
+                            
+                            <dt class="col-6">Não Reconhecido:</dt>
+                            <dd class="col-6">R$ {{ "%.2f"|format(cco_corrigida.valorNaoReconhecido.to_decimal() if cco_corrigida.valorNaoReconhecido else 0) }}</dd>
+                            
+                            <dt class="col-6">Não Recuperável:</dt>
+                            <dd class="col-6">R$ {{ "%.2f"|format(cco_corrigida.valorNaoPassivelRecuperacao.to_decimal() if cco_corrigida.valorNaoPassivelRecuperacao else 0) }}</dd>
+                            
+                            <dt class="col-6">Overhead Exploração:</dt>
+                            <dd class="col-6">R$ {{ "%.2f"|format(cco_corrigida.overHeadExploracao.to_decimal() if cco_corrigida.overHeadExploracao else 0) }}</dd>
+                            
+                            <dt class="col-6">Overhead Produção:</dt>
+                            <dd class="col-6">R$ {{ "%.2f"|format(cco_corrigida.overHeadProducao.to_decimal() if cco_corrigida.overHeadProducao else 0) }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const ccoId = '{{ cco_corrigida._id }}';
+const sessionId = '{{ cco_corrigida.session_id or "" }}';
+
+function mostrarDetalhesCompletos() {
+    const modal = new bootstrap.Modal(document.getElementById('modalDetalhesCompletos'));
+    modal.show();
+}
+
+function abrirTimeline() {
+    window.open(`/ipca-promocao/timeline/${ccoId}`, '_blank');
+}
+
+function verMemoriaCalculo() {
+    if (sessionId) {
+        window.open(`/ipca-promocao/memoria-calculo/${sessionId}`, '_blank');
+    } else {
+        alert('Memória de cálculo não disponível para esta correção.');
+    }
+}
+
+function compararCCOs() {
+    // TODO: Implementar comparação visual
+    alert('Funcionalidade de comparação em desenvolvimento.');
+}
+
+function voltarPesquisa() {
+    window.close();
+    // Se a janela não fechar (não foi aberta via script), redirecionar
+    setTimeout(() => {
+        window.location.href = '{{ url_for("ipca_promocao.index") }}';
+    }, 100);
+}
+
+function promoverCorrecao() {
+    // Verificar se pode promover
+    {% if not pode_promover.pode_promover %}
+        alert('Esta correção não pode ser promovida:\n' + 
+              '{{ pode_promover.motivos_bloqueio|join("\\n") }}');
+        return;
+    {% endif %}
+    
+    {% if (cco_corrigida.status_promocao or 'PENDENTE') == 'PROMOVIDA' %}
+        alert('Esta correção já foi promovida para produção.');
+        return;
+    {% endif %}
+    
+    // Mostrar modal de confirmação
+    const modal = new bootstrap.Modal(document.getElementById('modalPromocao'));
+    modal.show();
+}
+
+function confirmarPromocao() {
+    const confirmacao = document.getElementById('confirmacaoPromocao').checked;
+    const observacoes = document.getElementById('observacoesPromocao').value;
+    
+    if (!confirmacao) {
+        alert('É necessário confirmar a promoção marcando a caixa de seleção.');
+        return;
+    }
+    
+    // Fechar modal e mostrar loading
+    bootstrap.Modal.getInstance(document.getElementById('modalPromocao')).hide();
+    mostrarLoading();
+    
+    fetch('/ipca-promocao/api/promover', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            cco_id: ccoId,
+            user_id: 'current_user', // TODO: Implementar controle de usuário
+            observacoes: observacoes
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        esconderLoading();
+        
+        if (data.success) {
+            alert(`Correção promovida com sucesso!\n\n` +
+                  `Nova versão: ${data.nova_versao}\n` +
+                  `Data: ${new Date(data.data_promocao).toLocaleString('pt-BR')}`);
+            
+            // Recarregar página para mostrar status atualizado
+            window.location.reload();
+        } else {
+            alert('Erro na promoção: ' + (data.error || 'Erro desconhecido'));
+            if (data.motivos) {
+                alert('Motivos:\n' + data.motivos.join('\n'));
+            }
+        }
+    })
+    .catch(error => {
+        esconderLoading();
+        console.error('Erro na promoção:', error);
+        alert('Erro ao promover correção');
+    });
+}
+
+function mostrarLoading() {
+    // Criar overlay de loading se não existir
+    if (!document.getElementById('loadingOverlay')) {
+        const overlay = document.createElement('div');
+        overlay.id = 'loadingOverlay';
+        overlay.style.cssText = `
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 9999; display: flex;
+            justify-content: center; align-items: center;
+        `;
+        overlay.innerHTML = `
+            <div class="text-center text-white">
+                <div class="spinner-border mb-3" role="status"></div>
+                <h5>Promovendo correção...</h5>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+    } else {
+        document.getElementById('loadingOverlay').style.display = 'flex';
+    }
+}
+
+function esconderLoading() {
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
+}
+</script>
+{% endblock %}

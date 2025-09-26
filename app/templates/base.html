@@ -58,10 +58,23 @@
             border-radius: 0.5rem;
             overflow: hidden;
         }
+
+        .timeline-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 3px solid white;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        }
     </style>
     
-    {% block extra_css %}{% endblock %}
+    {% block styles %}{% endblock %}
 </head>
+{% block scripts %}
+{% endblock %}
 <body class="bg-light">
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container" style="max-width: 1700px">
