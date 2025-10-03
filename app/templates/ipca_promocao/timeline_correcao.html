@@ -599,7 +599,7 @@ pre code {
                             <dt>Data de Criação:</dt>
                             <dd>
                                 {% if cco.data_criacao_correcao %}
-                                    {{ cco.data_criacao_correcao.strftime('%d/%m/%Y %H:%M') }}
+                                    {{ cco.data_criacao_correcao }}
                                 {% else %}
                                     <span class="text-muted">N/A</span>
                                 {% endif %}
