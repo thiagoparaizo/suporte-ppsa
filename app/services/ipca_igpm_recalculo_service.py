@@ -11,6 +11,7 @@ from bson.int64 import Int64
 from decimal import Decimal
 from typing import Dict, Any, List, Optional, Tuple
 from copy import deepcopy
+from app.config import IGNORAR_CORECAO_MONETARIA_VALOR_NEGATIVO
 
 logger = logging.getLogger(__name__)
 
@@ -179,7 +180,7 @@ class IPCAIGPMRecalculoService:
             
             # Obter valor base para correção
             valor_base = self._obter_valor_base_correcao(cco_original, ano, mes)
-            if valor_base <= 0:
+            if valor_base <= 0 and IGNORAR_CORECAO_MONETARIA_VALOR_NEGATIVO:
                 return {'success': False, 'error': 'Valor base para correção é zero ou negativo'}
             
             # Calcular valores da correção

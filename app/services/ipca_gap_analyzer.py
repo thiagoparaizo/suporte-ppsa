@@ -10,6 +10,7 @@ from bson import ObjectId
 from typing import Dict, Any, List, Optional, Tuple
 import csv
 import json
+from app.config import IGNORAR_CORECAO_MONETARIA_VALOR_NEGATIVO
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,7 @@ class IPCAGapAnalyzer:
         # Parâmetro configurável para ajuste do mês da taxa
         # 0 = mesmo mês, -1 = mês anterior, +1 = mês posterior
         self.OFFSET_MES_TAXA_APLICACAO = -1  # Atualmente: mês anterior ao aniversário
-    
+        
      
     def _calcular_mes_taxa_aplicacao(self, ano_aniversario: int, mes_aniversario: int) -> tuple:
         """
@@ -274,7 +275,7 @@ class IPCAGapAnalyzer:
                 # Cenário 1: GAP - Correção não aplicada
                 valor_base = self._obter_valor_base_para_gap(cco, ano_aniversario, mes_aniversario)
                 # regra para ignorar gaps com valor base 0, pois não são relevantes para o processo de correção de IPCA/IGPM de valores menor ou iguais a zero
-                if valor_base <= 0:
+                if valor_base <= 0 and IGNORAR_CORECAO_MONETARIA_VALOR_NEGATIVO:
                     logger.info(f"CCO {cco['_id']} - GAP ignorado: {mes_aniversario:02d}/{ano_aniversario} - Valor base: {valor_base}")
                     print(f"_analisar_cco_individual: VERIFIQUE: CCO {cco['_id']} - GAP ignorado: {mes_aniversario:02d}/{ano_aniversario} - Valor base: {valor_base}")
                     # Próximo aniversário

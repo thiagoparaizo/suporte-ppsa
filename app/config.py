@@ -7,3 +7,4 @@ MONGO_URI_PRD = MONGO_URI_PRD.replace('tlsCAFile=PATH_CERT', f'tlsCAFile={CA_CER
 CACHE_DIR_PATH = os.getenv('CACHE_DIR_PATH', os.path.join(os.getcwd(), 'cache'))
 
 PESQUISA_AMBINTE_PRODUCAO = os.getenv('PESQUISA_AMBINTE_PRODUCAO', False)
+IGNORAR_CORECAO_MONETARIA_VALOR_NEGATIVO = False

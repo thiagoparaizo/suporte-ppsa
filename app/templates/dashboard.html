@@ -149,7 +149,7 @@
 {% endif %}
 
 <!-- Gráficos -->
-<div class="row mb-4">
+<div class="row mb-4" id="graficosSec1">
     <!-- Distribuição de Fases -->
     <div class="col-lg-6 mb-4">
         <div class="card h-100">
@@ -184,6 +184,63 @@
         </div>
     </div>
 </div>
+
+{% if stats.tipoAnalise == 'DETALHADA' and stats.consolidacao_detalhada %}
+<div class="row mb-4">
+    <!-- Gastos por Fase -->
+    <div class="col-lg-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-layer-group me-2"></i>
+                    Análise de Gastos por Fase
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container" style="height: 400px;">
+                    <canvas id="graficoGastosPorFase"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Gastos Consolidados -->
+    <div class="col-lg-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-pie me-2"></i>
+                    Distribuição Geral de Gastos
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container" style="height: 400px;">
+                    <canvas id="graficoGastosConsolidado"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Valores por Fase (Gráfico de Barras Empilhadas) -->
+    
+    <div class="col-lg-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>
+                    Valores por Fase - Detalhamento
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container" style="height: 400px;">
+                    <canvas id="graficoValoresPorFase"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{% endif %}
 
 <!-- Gráficos específicos para análise detalhada -->
 {% if stats.tipoAnalise == 'DETALHADA' and stats.consolidacao_detalhada %}
@@ -238,6 +295,7 @@
 </div>
 {% endif %}
 
+
 <!-- Timeline de Reconhecimentos -->
 <div class="row mb-4">
     <div class="col-12">
@@ -280,7 +338,7 @@
             <div class="card-header">
                 <h5 class="mb-0">
                     <i class="fas fa-info-circle me-2"></i>
-                    Informações Gerais
+                    Informações Gerais das CCOs
                 </h5>
             </div>
             <div class="card-body">
@@ -310,22 +368,22 @@
                 
                 {% if stats.datas.primeira_remessa %}
                 <div class="mb-3">
-                    <small class="text-muted">Primeira Remessa</small>
+                    <small class="text-muted">Data Primeira Reconhecimento</small>
                     <h6>{{ stats.datas.primeira_remessa }}</h6>
                 </div>
                 
                 <div class="mb-3">
-                    <small class="text-muted">Última Remessa</small>
+                    <small class="text-muted">Data Último Reconhecimento</small>
                     <h6>{{ stats.datas.ultima_remessa }}</h6>
                 </div>
                 {% endif %}
                 
-                <div class="mb-3">
+                <div class="mb-3" id="infoMaiorValorRemessa">
                     <small class="text-muted">Maior Valor</small>
                     <h6>R$ {{ "{:,.2f}".format(stats.valores.maior_valor_remessa).replace(",", "X").replace(".", ",").replace("X", ".") }}</h6>
                 </div>
                 
-                <div class="mb-3">
+                <div class="mb-3" id="infoMenorValorRemessa">
                     <small class="text-muted">Menor Valor</small>
                     <h6>R$ {{ "{:,.2f}".format(stats.valores.menor_valor_remessa).replace(",", "X").replace(".", ",").replace("X", ".") }}</h6>
                 </div>
@@ -462,6 +520,10 @@ document.addEventListener('DOMContentLoaded', function() {
         carregarGraficoClassificacoes();
         carregarGraficoResponsaveis();
         carregarGraficoCorrecoes();
+
+        carregarGraficoGastosPorFase();
+        carregarGraficoGastosConsolidado();
+        carregarGraficoValoresPorFase();
     }
     
     // Tabela Detalhada
@@ -613,9 +675,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function carregarTabelaDetalhada() {
+        console.log("carregarTabelaDetalhada...");
         fetch('/api/remessas-detalhadas')
             .then(response => response.json())
             .then(data => {
+                console.log('carregarTabelaDetalhada --> ' + data);
                 const tbody = document.querySelector('#tabelaDetalhada tbody');
                 tbody.innerHTML = '';
                 
@@ -1246,7 +1310,308 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .catch(error => console.error('Erro ao carregar gráfico de valores:', error));
     }
+
+    function carregarGraficoGastosPorFase() {
+        fetch('/api/dados-grafico/gastos_por_fase')
+            .then(response => response.json())
+            .then(data => {
+                const fases = Object.keys(data).sort();
+                
+                // Preparar datasets para gráfico de barras agrupadas
+                const datasets = [
+                    {
+                        label: 'Reconhecidos',
+                        data: fases.map(fase => data[fase].contadores.reconhecido),
+                        backgroundColor: cores.sucesso,
+                        stack: 'Stack 0'
+                    },
+                    {
+                        label: 'Rec. Automáticos',
+                        data: fases.map(fase => data[fase].contadores.recAutomatico),
+                        backgroundColor: cores.info,
+                        stack: 'Stack 0'
+                    },
+                    {
+                        label: 'Não Reconhecidos',
+                        data: fases.map(fase => data[fase].contadores.naoReconhecido),
+                        backgroundColor: cores.aviso,
+                        stack: 'Stack 0'
+                    },
+                    {
+                        label: 'Recusados',
+                        data: fases.map(fase => data[fase].contadores.recusados),
+                        backgroundColor: cores.perigo,
+                        stack: 'Stack 0'
+                    }
+                ];
+                
+                const ctx = document.getElementById('graficoGastosPorFase').getContext('2d');
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: fases,
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false
+                        },
+                        scales: {
+                            x: {
+                                stacked: true,
+                                title: {
+                                    display: true,
+                                    text: 'Fase'
+                                }
+                            },
+                            y: {
+                                stacked: true,
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Quantidade de Gastos'
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'top'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.dataset.label + ': ' + context.parsed.y.toLocaleString('pt-BR');
+                                    },
+                                    footer: function(items) {
+                                        let total = 0;
+                                        items.forEach(item => {
+                                            total += item.parsed.y;
+                                        });
+                                        return 'Total: ' + total.toLocaleString('pt-BR');
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            })
+            .catch(error => console.error('Erro ao carregar gráfico de gastos por fase:', error));
+    }
+
+    function carregarGraficoGastosConsolidado() {
+        fetch('/api/dados-grafico/gastos_consolidado')
+            .then(response => response.json())
+            .then(data => {
+                const contadores = data.contadores;
+                
+                // Preparar dados para gráfico de rosca
+                const labels = [];
+                const valores = [];
+                const backgroundColors = [];
+                
+                if (contadores.reconhecido > 0) {
+                    labels.push('Reconhecidos (Manual)');
+                    valores.push(contadores.reconhecido);
+                    backgroundColors.push(cores.sucesso);
+                }
+                
+                if (contadores.recAutomatico > 0) {
+                    labels.push('Rec. Automáticos');
+                    valores.push(contadores.recAutomatico);
+                    backgroundColors.push(cores.info);
+                }
+                
+                if (contadores.naoReconhecido > 0) {
+                    labels.push('Não Reconhecidos');
+                    valores.push(contadores.naoReconhecido);
+                    backgroundColors.push(cores.aviso);
+                }
+                
+                if (contadores.recusados > 0) {
+                    labels.push('Recusados');
+                    valores.push(contadores.recusados);
+                    backgroundColors.push(cores.perigo);
+                }
+                
+                const ctx = document.getElementById('graficoGastosConsolidado').getContext('2d');
+                new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: valores,
+                            backgroundColor: backgroundColors,
+                            borderWidth: 2,
+                            borderColor: '#fff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                        return context.label + ': ' + context.parsed.toLocaleString('pt-BR') + ' (' + percentage + '%)';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            })
+            .catch(error => console.error('Erro ao carregar gráfico consolidado:', error));
+    }
+
+    function carregarGraficoValoresPorFase() {
+        fetch('/api/dados-grafico/gastos_por_fase')
+            .then(response => response.json())
+            .then(data => {
+                const fases = Object.keys(data).sort();
+                
+                // Preparar datasets para valores
+                const datasets = [
+                    {
+                        label: 'Valor Reconhecido (R$)',
+                        data: fases.map(fase => data[fase].valores.reconhecido),
+                        backgroundColor: cores.sucesso,
+                        stack: 'Stack 0'
+                    },
+                    {
+                        label: 'Valor Não Reconhecido (R$)',
+                        data: fases.map(fase => data[fase].valores.naoReconhecido),
+                        backgroundColor: cores.aviso,
+                        stack: 'Stack 0'
+                    },
+                    {
+                        label: 'Valor Recusado (R$)',
+                        data: fases.map(fase => data[fase].valores.recusado),
+                        backgroundColor: cores.perigo,
+                        stack: 'Stack 0'
+                    }
+                ];
+                
+                const ctx = document.getElementById('graficoValoresPorFase').getContext('2d');
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: fases,
+                        datasets: datasets
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false
+                        },
+                        scales: {
+                            x: {
+                                stacked: true,
+                                title: {
+                                    display: true,
+                                    text: 'Fase'
+                                }
+                            },
+                            y: {
+                                stacked: true,
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Valor (R$)'
+                                },
+                                ticks: {
+                                    callback: function(value) {
+                                        return 'R$ ' + value.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+                                    }
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'top'
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.dataset.label + ': R$ ' + context.parsed.y.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+                                    },
+                                    footer: function(items) {
+                                        let total = 0;
+                                        items.forEach(item => {
+                                            total += item.parsed.y;
+                                        });
+                                        return 'Total: R$ ' + total.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            })
+            .catch(error => console.error('Erro ao carregar gráfico de valores por fase:', error));
+    }
 });
+
+// Verificar se é análise de remessa única
+const ehRemessaUnica = {{ 'true' if stats.resumo_geral.total_remessas == 1 else 'false' }};
+
+// Ajustar exibição de gráficos conforme tipo de análise
+if (ehRemessaUnica) {
+    // Ocultar gráficos que não fazem sentido para remessa única
+    const graficoExercicios = document.getElementById('graficoExercicios')?.closest('.col-lg-6');
+    const graficoFases = document.getElementById('graficoFases')?.closest('.col-lg-6');
+
+    const graficoValores = document.getElementById('graficoValores')?.closest('.col-lg-8');
+
+    const infoMaiorValorRemessa = document.getElementById('infoMaiorValorRemessa');
+    const infoMenorValorRemessa = document.getElementById('infoMenorValorRemessa');
+    
+    if (graficoExercicios) {
+        graficoExercicios.style.display = 'none';
+    }
+
+    if(graficoFases){
+        graficoFases.style.display = 'none';
+    }
+    
+    if(infoMaiorValorRemessa){
+        infoMaiorValorRemessa.style.display = 'none';
+    }
+    
+    if(infoMenorValorRemessa){
+        infoMenorValorRemessa.style.display = 'none';
+    }
+
+    const graficosSec1 = document.getElementById('graficosSec1');
+    graficosSec1.style.display = 'none';
+    
+    // Para remessa única, ajustar o card de informações gerais
+    ajustarInformacoesRemessaUnica();
+}
+
+function ajustarInformacoesRemessaUnica() {
+    // Aqui você pode customizar as informações exibidas para remessa única
+    const cardInfo = document.querySelector('.col-lg-4');
+    if (cardInfo) {
+        // Adicionar informações específicas da remessa
+        const remessaInfo = `
+            <div class="alert alert-info mt-3">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Análise de Remessa Única</strong>
+            </div>
+        `;
+        cardInfo.querySelector('.card-body').insertAdjacentHTML('beforeend', remessaInfo);
+    }
+}
 
 window.toggleValoresExtras = function() {
     const valoresExtras = document.getElementById('valoresExtras');

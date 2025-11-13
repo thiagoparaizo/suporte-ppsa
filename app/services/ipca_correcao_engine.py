@@ -12,6 +12,7 @@ from copy import deepcopy
 from bson import Decimal128
 
 from app.services.ipca_correcao_orquestrador import CorrectionType
+from app.config import IGNORAR_CORECAO_MONETARIA_VALOR_NEGATIVO
 
 logger = logging.getLogger(__name__)
 
@@ -105,20 +106,85 @@ class IPCACorrectionEngine:
             if not cco_original:
                 raise ValueError(f"CCO {cco_id} não encontrada")
             
-            # Aplicar cada correção
-            for correcao in correcoes_aprovadas:
-                nova_correcao_monetaria = self._criar_correcao_monetaria_real(correcao, cco_original)
-                
-                # Inserir correção na CCO # TODO verificar coleção e banco de dados
-                self.db.conta_custo_oleo_corrigida_entity.update_one(
-                    {'_id': cco_id},
-                    {
-                        '$push': {'correcoesMonetarias': nova_correcao_monetaria}
-                        
-                    }
-                )
+            # Separar correções por tipo
+            gaps_adicoes = []
+            compensacoes = []
+            reativacoes = []
             
-            return {'success': True, 'correcoes_aplicadas': len(correcoes_aprovadas)}
+            for c in correcoes_aprovadas:
+                tipo_correcao = c.get('type')
+                if hasattr(tipo_correcao, 'value'):
+                    tipo_str = tipo_correcao.value
+                else:
+                    tipo_str = str(tipo_correcao)
+                
+                if tipo_str == 'IPCA_ADDITION':
+                    gaps_adicoes.append(c)
+                elif tipo_str == 'COMPENSATION':
+                    compensacoes.append(c)
+                elif tipo_str == 'REACTIVATION':
+                    reativacoes.append(c)
+            
+            logger.info(f"Cenário 2 - Aplicando: {len(gaps_adicoes)} gaps, {len(compensacoes)} compensações, {len(reativacoes)} reativações")
+            
+            # Reconstruir lista de correções (similar ao Cenário 1, mas incluindo compensações)
+            nova_lista_correcoes = self._reconstruir_lista_correcoes_cenario2(
+                cco_original, gaps_adicoes, compensacoes
+            )
+            
+            lista_correcoes_ajustada = self._ajustar_atributos_correcoes_ipca(nova_lista_correcoes)
+            
+            # Preparar update
+            update_data = {'correcoesMonetarias': lista_correcoes_ajustada}
+            
+            # Adicionar reativação se necessário
+            if reativacoes:
+                update_data['flgRecuperado'] = False
+            
+            
+            # TODO criando novos registros, ao invés de alterar os existentes. Ajustar isso futuramente
+            sufixo = "" #"_corrigida_cenario_2"
+            novo_id = cco_id + sufixo
+
+            if self.db.conta_custo_oleo_corrigida_entity.find_one({'_id': novo_id}):
+                self.db.conta_custo_oleo_corrigida_entity.delete_one({'_id': novo_id})
+
+            cco_corrigida = cco_original.copy()
+            cco_corrigida['_id'] = novo_id
+            cco_corrigida['session_id'] = session_id
+            cco_corrigida['status_promocao'] = 'PENDENTE'
+            cco_corrigida['data_criacao_correcao'] = datetime.now()
+            cco_corrigida['correcoesMonetarias'] = nova_lista_correcoes
+            if reativacoes:
+                cco_corrigida['flgRecuperado'] = False
+            
+            # Inserir CCO corrigida
+            resultado = self.db.conta_custo_oleo_corrigida_entity.insert_one(cco_corrigida)
+            
+            return {
+                'success': True, 
+                'correcoes_aplicadas': len(correcoes_aprovadas),
+                'gaps_adicionados': len(gaps_adicoes),
+                'compensacoes_aplicadas': len(compensacoes),
+                'cco_reativada': len(reativacoes) > 0,
+                'total_correcoes_final': len(nova_lista_correcoes)
+            }
+            # --
+            
+            # # Aplicar cada correção
+            # for correcao in correcoes_aprovadas:
+            #     nova_correcao_monetaria = self._criar_correcao_monetaria_real(correcao, cco_original)
+                
+            #     # Inserir correção na CCO # TODO verificar coleção e banco de dados
+            #     self.db.conta_custo_oleo_corrigida_entity.update_one(
+            #         {'_id': cco_id},
+            #         {
+            #             '$push': {'correcoesMonetarias': nova_correcao_monetaria}
+                        
+            #         }
+            #     )
+            
+            # return {'success': True, 'correcoes_aplicadas': len(correcoes_aprovadas)}
             
         except Exception as e:
             logger.error(f"Erro ao aplicar correções Cenário 0: {e}")
@@ -318,7 +384,7 @@ class IPCACorrectionEngine:
         
         return {
             'tipo': 'IPCA',
-            'subTipo': 'RETIFICACAO',
+            'subTipo': 'DEFAULT',
             "contrato" : cco_original.get('contratoCpp', ''),
             "campo" : cco_original.get('campo', ''),
             'dataCorrecao': data_correcao_str,
@@ -1247,7 +1313,7 @@ class IPCACorrectionEngine:
                 valor_base = gap['valor_base']
                 
             # VALIDAÇÃO: Se valor base é zero ou negativo, não aplicar correção
-            if valor_base <= 0:
+            if valor_base <= 0 and IGNORAR_CORECAO_MONETARIA_VALOR_NEGATIVO:
                 print(f"Gap {mes_gap:02d}/{ano_gap} ignorado - valor base é zero ou negativo: {valor_base}")
                 logger.info(f"Gap {mes_gap:02d}/{ano_gap} ignorado - valor base é zero ou negativo: {valor_base}")
                 return None

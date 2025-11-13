@@ -218,6 +218,65 @@ class PortalService:
                 contadores[fase['fase']] += 1
         return [{'fase': fase, 'count': count} for fase, count in contadores.items()]
 
+    @staticmethod
+    def gerar_dados_gastos_por_fase(dados_analise: Dict[str, Any]) -> Dict[str, Any]:
+        """Gera dados de gastos consolidados por fase"""
+        dados_fases = {}
+        
+        for remessa in dados_analise['remessasAnalisadas']:
+            for fase in remessa.get('fasesComReconhecimento', []):
+                fase_nome = fase['fase']
+                
+                if fase_nome not in dados_fases:
+                    dados_fases[fase_nome] = {
+                        'contadores': {
+                            'total': 0,
+                            'reconhecido': 0,
+                            'recAutomatico': 0,
+                            'naoReconhecido': 0,
+                            'recusados': 0
+                        },
+                        'valores': {
+                            'lancamentoTotal': 0,
+                            'reconhecido': 0,
+                            'naoReconhecido': 0,
+                            'recusado': 0
+                        }
+                    }
+                
+                # Consolidar contadores
+                if 'consolidacao' in fase:
+                    for key, value in fase['consolidacao']['contadores'].items():
+                        if key in dados_fases[fase_nome]['contadores']:
+                            dados_fases[fase_nome]['contadores'][key] += value
+                    
+                    # Consolidar valores
+                    for key, value in fase['consolidacao']['valores'].items():
+                        if key in dados_fases[fase_nome]['valores']:
+                            dados_fases[fase_nome]['valores'][key] += value
+        
+        return dados_fases
+
+    @staticmethod
+    def gerar_dados_gastos_consolidado(dados_analise: Dict[str, Any]) -> Dict[str, Any]:
+        """Gera dados de gastos consolidados de todas as fases"""
+        if 'consolidacaoGeral' in dados_analise.get('estatisticas', {}):
+            consolidacao = dados_analise['estatisticas']['consolidacaoGeral']
+            return {
+                'contadores': consolidacao.get('contadores', {}),
+                'valores': consolidacao.get('valores', {})
+            }
+        
+        return {
+            'contadores': {},
+            'valores': {}
+        }
+
+    @staticmethod
+    def eh_analise_remessa_unica(dados_analise: Dict[str, Any]) -> bool:
+        """Verifica se é análise de remessa única"""
+        return dados_analise.get('estatisticas', {}).get('totalRemessas', 0) == 1
+
     # --- CCO Details / Timeline ---
     @staticmethod
     def extrair_valores_cco(cco_data: Dict[str, Any]) -> Dict[str, Any]:
